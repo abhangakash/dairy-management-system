@@ -1,0 +1,40 @@
+const express = require("express");
+const cors = require("cors");
+require("dotenv").config();
+const db = require("./config/db");
+const app = express();
+app.use(cors());
+app.use(express.json());
+
+//rotes import
+const authRoutes = require("./routes/authRoutes");
+const authMiddleware = require("./middleware/authMiddleware");
+const productRoutes = require("./routes/productRoutes");
+const dashboardRoutes = require("./routes/dashboardRoutes");
+
+
+//api 
+app.use("/api/auth", authRoutes);
+app.use("/api/products", productRoutes);
+app.use("/api/dashboard", dashboardRoutes);
+
+// Test DB connection`
+app.get("/", (req, res) => {
+  res.send("Dairy Management Backend Running 🚀");
+});
+
+app.get("/test-db", async (req, res) => {
+  try {
+    const [rows] = await db.query("SELECT 1");
+    res.send("Database Connected Successfully 🚀");
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Database Connection Failed ❌" });
+  }
+});
+
+const PORT = process.env.PORT || 5000;
+
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});
