@@ -3,19 +3,18 @@ import axios from "../../api/axios";
 import Layout from "../../components/layout/Layout";
 import toast from "react-hot-toast";
 
-const Product = () => {
-  const [products, setProducts] = useState([]);
+const Worker = () => {
+  const [workers, setWorkers] = useState([]);
   const [form, setForm] = useState({
     name: "",
-    category: "",
-    unit: "",
-    selling_price: "",
+    mobile: "",
+    role: "",
+    salary: "",
   });
 
   const [editingId, setEditingId] = useState(null);
   const [loading, setLoading] = useState(false);
 
-  // ERP states
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(5);
@@ -23,69 +22,68 @@ const Product = () => {
 
   const totalPages = Math.ceil(total / limit);
 
-  const fetchProducts = async () => {
+  const fetchWorkers = async () => {
     setLoading(true);
     try {
       const res = await axios.get(
-        `/products?page=${page}&limit=${limit}&search=${search}`
+        `/workers?page=${page}&limit=${limit}&search=${search}`
       );
-      setProducts(res.data.data);
+      setWorkers(res.data.data);
       setTotal(res.data.total);
     } catch {
-      toast.error("Failed to load products");
+      toast.error("Failed to load workers");
     }
     setLoading(false);
   };
 
   useEffect(() => {
-    fetchProducts();
+    fetchWorkers();
   }, [page, limit, search]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
-    if (!form.name) return toast.error("Product name required");
+    if (!form.name) return toast.error("Worker name required");
 
     try {
       if (editingId) {
-        await axios.put(`/products/${editingId}`, form);
-        toast.success("Product updated");
+        await axios.put(`/workers/${editingId}`, form);
+        toast.success("Worker updated");
       } else {
-        await axios.post("/products", form);
-        toast.success("Product added");
+        await axios.post("/workers", form);
+        toast.success("Worker added");
       }
 
       setForm({
         name: "",
-        category: "",
-        unit: "",
-        selling_price: "",
+        mobile: "",
+        role: "",
+        salary: "",
       });
 
       setEditingId(null);
-      fetchProducts();
+      fetchWorkers();
     } catch {
-      toast.error("Error saving product");
+      toast.error("Error saving worker");
     }
   };
 
-  const handleEdit = (product) => {
-    setEditingId(product.id);
-    setForm(product);
+  const handleEdit = (worker) => {
+    setEditingId(worker.id);
+    setForm(worker);
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm("Archive this product?")) return;
+    if (!window.confirm("Archive this worker?")) return;
 
-    await axios.delete(`/products/${id}`);
-    toast.success("Product archived");
-    fetchProducts();
+    await axios.delete(`/workers/${id}`);
+    toast.success("Worker archived");
+    fetchWorkers();
   };
 
   const toggleStatus = async (id) => {
-    await axios.patch(`/products/status/${id}`);
+    await axios.patch(`/workers/status/${id}`);
     toast.success("Status updated");
-    fetchProducts();
+    fetchWorkers();
   };
 
   return (
@@ -93,14 +91,14 @@ const Product = () => {
       <div className="space-y-6">
 
         <h2 className="text-2xl font-bold text-gray-800">
-          Product Master
+          Worker Master
         </h2>
 
         {/* SEARCH + LIMIT */}
         <div className="flex flex-col md:flex-row gap-4 justify-between">
           <input
             type="text"
-            placeholder="Search product..."
+            placeholder="Search worker..."
             className="border p-2 rounded-lg w-full md:w-1/3"
             value={search}
             onChange={(e) => {
@@ -131,7 +129,7 @@ const Product = () => {
           >
             <input
               type="text"
-              placeholder="Product Name"
+              placeholder="Name"
               value={form.name}
               onChange={(e) =>
                 setForm({ ...form, name: e.target.value })
@@ -141,30 +139,30 @@ const Product = () => {
 
             <input
               type="text"
-              placeholder="Category"
-              value={form.category}
+              placeholder="Mobile"
+              value={form.mobile}
               onChange={(e) =>
-                setForm({ ...form, category: e.target.value })
+                setForm({ ...form, mobile: e.target.value })
               }
               className="border p-2 rounded-lg"
             />
 
             <input
               type="text"
-              placeholder="Unit"
-              value={form.unit}
+              placeholder="Role"
+              value={form.role}
               onChange={(e) =>
-                setForm({ ...form, unit: e.target.value })
+                setForm({ ...form, role: e.target.value })
               }
               className="border p-2 rounded-lg"
             />
 
             <input
               type="number"
-              placeholder="Selling Price"
-              value={form.selling_price}
+              placeholder="Salary"
+              value={form.salary}
               onChange={(e) =>
-                setForm({ ...form, selling_price: e.target.value })
+                setForm({ ...form, salary: e.target.value })
               }
               className="border p-2 rounded-lg"
             />
@@ -178,133 +176,125 @@ const Product = () => {
           </form>
         </div>
 
-        {/* TABLE */}
-      {/* PRODUCT LIST */}
+        {/* LIST */}
         <div className="space-y-4">
 
-        {loading ? (
+          {loading ? (
             <p>Loading...</p>
-        ) : products.length === 0 ? (
-            <p className="text-gray-500">No products found.</p>
-        ) : (
+          ) : workers.length === 0 ? (
+            <p className="text-gray-500">No workers found.</p>
+          ) : (
             <>
-            {/* DESKTOP TABLE */}
-            <div className="hidden md:block bg-white rounded-xl shadow overflow-x-auto">
+              {/* DESKTOP TABLE */}
+              <div className="hidden md:block bg-white rounded-xl shadow overflow-x-auto">
                 <table className="min-w-full text-left">
-                <thead className="bg-gray-50 text-gray-600 text-sm">
+                  <thead className="bg-gray-50 text-gray-600 text-sm">
                     <tr>
-                    <th className="p-3">Product</th>
-                    <th>Category</th>
-                    <th>Unit</th>
-                    <th>Price</th>
-                    <th>Status</th>
-                    <th className="text-center">Actions</th>
+                      <th className="p-3">Name</th>
+                      <th>Mobile</th>
+                      <th>Role</th>
+                      <th>Salary</th>
+                      <th>Status</th>
+                      <th className="text-center">Actions</th>
                     </tr>
-                </thead>
-
-                <tbody>
-                    {products.map((product) => (
-                    <tr key={product.id} className="border-t hover:bg-gray-50">
-                        <td className="p-3 font-medium">{product.name}</td>
-                        <td>{product.category}</td>
-                        <td>{product.unit}</td>
-                        <td>₹ {product.selling_price}</td>
-
+                  </thead>
+                  <tbody>
+                    {workers.map((worker) => (
+                      <tr key={worker.id} className="border-t hover:bg-gray-50">
+                        <td className="p-3 font-medium">{worker.name}</td>
+                        <td>{worker.mobile}</td>
+                        <td>{worker.role}</td>
+                        <td>₹ {worker.salary}</td>
                         <td>
-                        <span
-                            className={`px-3 py-1 text-xs font-medium border p-2 rounded-lg ${
-                            product.status === "active"
+                          <span
+                            className={`px-3 py-1 rounded-full text-xs ${
+                              worker.status === "active"
                                 ? "bg-green-100 text-green-600"
                                 : "bg-red-100 text-red-600"
                             }`}
-                        >
-                            {product.status}
-                        </span>
+                          >
+                            {worker.status}
+                          </span>
                         </td>
-
                         <td className="text-center space-x-2">
-                        <button
-                            onClick={() => handleEdit(product)}
-                            className="px-3 py-1 text-xs bg-blue-100 text-blue-600 border p-2 rounded-lg"
-                        >
+                          <button
+                            onClick={() => handleEdit(worker)}
+                            className="text-blue-500"
+                          >
                             Edit
-                        </button>
-
-                        <button
-                            onClick={() => toggleStatus(product.id)}
-                            className="px-3 py-1 text-xs bg-yellow-100 text-yellow-700 border p-2 rounded-lg"
-                        >
-                            Disable
-                        </button>
-
-                        <button
-                            onClick={() => handleDelete(product.id)}
-                            className="px-3 py-1 text-xs bg-red-100 text-red-600 border p-2 rounded-lg"
-                        >
+                          </button>
+                          <button
+                            onClick={() => toggleStatus(worker.id)}
+                            className="text-yellow-600"
+                          >
+                            Toggle
+                          </button>
+                          <button
+                            onClick={() => handleDelete(worker.id)}
+                            className="text-red-500"
+                          >
                             Archive
-                        </button>
+                          </button>
                         </td>
-                    </tr>
+                      </tr>
                     ))}
-                </tbody>
+                  </tbody>
                 </table>
-            </div>
+              </div>
 
-            {/* MOBILE CARD VIEW */}
-            <div className="md:hidden space-y-4">
-                {products.map((product) => (
-                <div
-                    key={product.id}
+              {/* MOBILE CARDS */}
+              <div className="md:hidden space-y-4">
+                {workers.map((worker) => (
+                  <div
+                    key={worker.id}
                     className="bg-white p-4 rounded-xl shadow space-y-2"
-                >
+                  >
                     <div className="flex justify-between">
-                    <h3 className="font-semibold">{product.name}</h3>
-                    <span
+                      <h3 className="font-semibold">{worker.name}</h3>
+                      <span
                         className={`px-2 py-1 rounded-full text-xs ${
-                        product.status === "active"
+                          worker.status === "active"
                             ? "bg-green-100 text-green-600"
                             : "bg-red-100 text-red-600"
                         }`}
-                    >
-                        {product.status}
-                    </span>
+                      >
+                        {worker.status}
+                      </span>
                     </div>
 
                     <p className="text-sm text-gray-500">
-                    {product.category} • {product.unit}
+                      {worker.role} • {worker.mobile}
                     </p>
 
                     <p className="font-medium">
-                    ₹ {product.selling_price}
+                      ₹ {worker.salary}
                     </p>
 
                     <div className="flex gap-2 pt-2">
-                    <button
-                        onClick={() => handleEdit(product)}
+                      <button
+                        onClick={() => handleEdit(worker)}
                         className="flex-1 bg-blue-500 text-white py-1 rounded text-sm"
-                    >
+                      >
                         Edit
-                    </button>
-
-                    <button
-                        onClick={() => toggleStatus(product.id)}
+                      </button>
+                      <button
+                        onClick={() => toggleStatus(worker.id)}
                         className="flex-1 bg-yellow-500 text-white py-1 rounded text-sm"
-                    >
+                      >
                         Toggle
-                    </button>
-
-                    <button
-                        onClick={() => handleDelete(product.id)}
+                      </button>
+                      <button
+                        onClick={() => handleDelete(worker.id)}
                         className="flex-1 bg-red-500 text-white py-1 rounded text-sm"
-                    >
+                      >
                         Archive
-                    </button>
+                      </button>
                     </div>
-                </div>
+                  </div>
                 ))}
-            </div>
+              </div>
             </>
-        )}
+          )}
         </div>
 
         {/* PAGINATION */}
@@ -329,9 +319,10 @@ const Product = () => {
             Next
           </button>
         </div>
+
       </div>
     </Layout>
   );
 };
 
-export default Product;
+export default Worker;

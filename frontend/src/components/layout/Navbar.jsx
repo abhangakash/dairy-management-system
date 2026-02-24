@@ -21,7 +21,7 @@ const Navbar = ({ setIsOpen }) => {
 
       <button
         onClick={logout}
-        className="bg-red-500 hover:bg-red-600 text-white px-3 md:px-4 py-2 rounded-lg text-sm md:text-base transition"
+        className="bg-black hover:bg-red-600 text-white px-3 md:px-4 py-2  rounded-lg text-sm md:text-base transition"
       >
         Logout
       </button>

@@ -11,12 +11,21 @@ const authRoutes = require("./routes/authRoutes");
 const authMiddleware = require("./middleware/authMiddleware");
 const productRoutes = require("./routes/productRoutes");
 const dashboardRoutes = require("./routes/dashboardRoutes");
+const workerRoutes = require("./routes/workerRoutes");
+const distributorRoutes = require("./routes/distributorRoutes");
+const partnerRoutes = require("./routes/partnerRoutes");
+const transactionRoutes = require("./routes/transactionRoutes");
+
 
 
 //api 
 app.use("/api/auth", authRoutes);
 app.use("/api/products", productRoutes);
 app.use("/api/dashboard", dashboardRoutes);
+app.use("/api/workers", workerRoutes);
+app.use("/api/distributors", distributorRoutes);
+app.use("/api/partners", partnerRoutes);
+app.use("/api/transactions", transactionRoutes);
 
 // Test DB connection`
 app.get("/", (req, res) => {
