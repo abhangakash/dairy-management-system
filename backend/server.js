@@ -3,7 +3,13 @@ const cors = require("cors");
 require("dotenv").config();
 const db = require("./config/db");
 const app = express();
-app.use(cors());
+
+app.use(cors({
+  origin: [
+    "https://dairy-management-system-99z8.onrender.com"
+  ],
+  credentials: true
+}));
 app.use(express.json());
 
 //rotes import
