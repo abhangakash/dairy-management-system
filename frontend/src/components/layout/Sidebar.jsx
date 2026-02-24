@@ -1,13 +1,40 @@
-import { Link } from "react-router-dom";
-import logo from "/24kb.jpeg"; // adjust path if needed
+import { NavLink } from "react-router-dom";
+import { 
+  LayoutDashboard, 
+  Box, 
+  Users, 
+  Truck, 
+  Handshake, 
+  ReceiptIndianRupee, 
+  Settings,
+  LogOut,
+  X
+} from "lucide-react";
+import logo from "/24kb.jpeg";
 
 const Sidebar = ({ isOpen, setIsOpen }) => {
+  
+  const navItems = [
+    { label: "Main Menu", isHeader: true },
+    { to: "/dashboard", label: "Dashboard", icon: <LayoutDashboard size={20} /> },
+    { to: "/products", label: "Products", icon: <Box size={20} /> },
+    { to: "/workers", label: "Workers", icon: <Users size={20} /> },
+    { label: "Partnerships", isHeader: true },
+    { to: "/distributors", label: "Distributors", icon: <Truck size={20} /> },
+    { to: "/partners", label: "Partners", icon: <Handshake size={20} /> },
+    { label: "Finance", isHeader: true },
+    { to: "/reports/ledger", label: "Transactions", icon: <ReceiptIndianRupee size={20} /> },
+  ];
+
+  const activeStyle = "bg-white/10 text-white border-r-4 border-indigo-400 shadow-sm";
+  const idleStyle = "text-indigo-100 hover:bg-white/5 hover:text-white";
+
   return (
     <>
       {/* Overlay (Mobile) */}
       {isOpen && (
         <div
-          className="fixed inset-0 bg-black bg-opacity-40 z-40 md:hidden"
+          className="fixed inset-0 bg-indigo-950/60 backdrop-blur-sm z-40 md:hidden transition-opacity"
           onClick={() => setIsOpen(false)}
         />
       )}
@@ -15,69 +42,52 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
       <div
         className={`
           fixed md:static top-0 left-0 z-50
-          bg-indigo-800 text-white
-          w-64 h-screen
-          transform
+          bg-indigo-900 text-white
+          w-72 h-screen flex flex-col
+          transform transition-all duration-300 ease-in-out
           ${isOpen ? "translate-x-0" : "-translate-x-full"}
-          md:translate-x-0
-          transition-transform duration-300 ease-in-out
-          shadow-lg
+          md:translate-x-0 shadow-2xl
         `}
       >
         {/* Logo Section */}
-        <div className="flex items-center gap-3 p-6 border-b border-indigo-700">
-          <img
-            src={logo}
-            alt="MilkyFeast Logo"
-            className="w-10 h-10 object-contain "
-          />
-          <h1 className="text-xl font-bold ">MilkyFeast</h1>
+        <div className="flex items-center justify-between p-6">
+          <div className="flex items-center gap-3">
+            <div className="bg-white p-1.5 rounded-xl shadow-inner">
+              <img src={logo} alt="Logo" className="w-8 h-8 object-contain" />
+            </div>
+            <h1 className="text-xl font-black tracking-tight uppercase">Milky<span className="text-indigo-400">Feast</span></h1>
+          </div>
+          <button onClick={() => setIsOpen(false)} className="md:hidden text-indigo-300 hover:text-white">
+            <X size={24} />
+          </button>
         </div>
 
         {/* Navigation */}
-        <nav className="p-4 space-y-2">
-          <Link
-            to="/dashboard"
-            className="block px-4 py-2 rounded hover:bg-indigo-700 transition"
-          >
-            Dashboard
-          </Link>
-
-          <Link
-            to="/products"
-            className="block px-4 py-2 rounded hover:bg-indigo-700 transition"
-          >
-            Products
-          </Link>
-
-          <Link
-            to="/workers"
-            className="block px-4 py-2 rounded hover:bg-indigo-700 transition"
-          >
-            Workers
-          </Link>
-
-          <Link
-            to="/distributors"
-            className="block px-4 py-2 rounded hover:bg-indigo-700 transition"
-          >
-            Distributors
-          </Link>
-
-          <Link
-            to="/partners"
-            className="block px-4 py-2 rounded hover:bg-indigo-700 transition"
-          >
-            Partners
-          </Link>
-
-          <Link
-            to="/reports/ledger"
-            className="block px-4 py-2 rounded hover:bg-indigo-700 transition"
-          >
-            Transactions
-          </Link>
+        <nav className="flex-1 px-4 py-2 space-y-1 overflow-y-auto custom-scrollbar">
+          {navItems.map((item, index) => (
+            item.isHeader ? (
+              <p key={index} className="text-[10px] font-bold uppercase tracking-widest text-indigo-400 pt-6 pb-2 px-4">
+                {item.label}
+              </p>
+            ) : (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                onClick={() => window.innerWidth < 768 && setIsOpen(false)}
+                className={({ isActive }) => `
+                  flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-all group
+                  ${isActive ? activeStyle : idleStyle}
+                `}
+              >
+                <span className="transition-transform group-hover:scale-110">{item.icon}</span>
+                {item.label}
+              </NavLink>
+            )
+          ))}
         </nav>
+
+        {/* Bottom Profile/Settings */}
+       
       </div>
     </>
   );

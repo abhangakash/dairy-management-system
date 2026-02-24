@@ -194,7 +194,7 @@ const Partner = () => {
 
                         <td>
                           <span
-                            className={`px-3 py-1 rounded-full text-xs ${
+                            className={`px-3 py-1 text-xs font-medium border p-2 rounded-lg ${
                               partner.status === "active"
                                 ? "bg-green-100 text-green-600"
                                 : "bg-red-100 text-red-600"
@@ -207,21 +207,21 @@ const Partner = () => {
                         <td className="text-center space-x-2">
                           <button
                             onClick={() => handleEdit(partner)}
-                            className="px-3 py-1 text-xs bg-blue-100 text-blue-600 rounded"
+                            className="px-3 py-1 text-xs bg-blue-100 text-blue-600 border p-2 rounded-lg"
                           >
                             Edit
                           </button>
 
                           <button
                             onClick={() => toggleStatus(partner.id)}
-                            className="px-3 py-1 text-xs bg-yellow-100 text-yellow-700 rounded"
+                            className="px-3 py-1 text-xs bg-yellow-100 text-yellow-700 border p-2 rounded-lg"
                           >
-                            Toggle
+                            Disable
                           </button>
 
                           <button
                             onClick={() => handleDelete(partner.id)}
-                            className="px-3 py-1 text-xs bg-red-100 text-red-600 rounded"
+                            className="px-3 py-1 text-xs bg-red-100 text-red-600 border p-2 rounded-lg"
                           >
                             Archive
                           </button>

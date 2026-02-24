@@ -207,7 +207,7 @@ const Worker = () => {
                         <td>₹ {worker.salary}</td>
                         <td>
                           <span
-                            className={`px-3 py-1 rounded-full text-xs ${
+                            className={`px-3 py-1 text-xs font-medium border p-2 rounded-lg ${
                               worker.status === "active"
                                 ? "bg-green-100 text-green-600"
                                 : "bg-red-100 text-red-600"
@@ -219,19 +219,19 @@ const Worker = () => {
                         <td className="text-center space-x-2">
                           <button
                             onClick={() => handleEdit(worker)}
-                            className="text-blue-500"
+                            className="px-3 py-1 text-xs bg-blue-100 text-blue-600 border p-2 rounded-lg"
                           >
                             Edit
                           </button>
                           <button
                             onClick={() => toggleStatus(worker.id)}
-                            className="text-yellow-600"
+                            className="px-3 py-1 text-xs bg-yellow-100 text-yellow-700 border p-2 rounded-lg"
                           >
-                            Toggle
+                            Disable
                           </button>
                           <button
                             onClick={() => handleDelete(worker.id)}
-                            className="text-red-500"
+                            className="px-3 py-1 text-xs bg-red-100 text-red-600 border p-2 rounded-lg"
                           >
                             Archive
                           </button>
