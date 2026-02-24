@@ -226,7 +226,7 @@ const Product = () => {
                   <StatusBadge status={p.status || 'active'} />
                 </div>
                 <div className="flex justify-between items-center py-3 border-y border-slate-50">
-                   <span className="text-xs font-medium text-slate-400">Selling Price</span>
+                   <span className="text-xs font-medium text-slate-400">Selling Cost</span>
                    <span className="text-lg font-black text-indigo-600">₹{p.selling_price}</span>
                 </div>
                 <ActionButtons onEdit={() => handleEdit(p)} isMobile />
