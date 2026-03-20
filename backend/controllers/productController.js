@@ -104,3 +104,19 @@ exports.toggleStatus = async (req, res) => {
     res.status(500).json({ message: "Server Error" });
   }
 };
+
+// ADD THIS in productController.js
+exports.getSingleProduct = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const [rows] = await db.query(
+      "SELECT * FROM products WHERE id=?",
+      [id]
+    );
+
+    res.json(rows[0]);
+  } catch (err) {
+    res.status(500).json({ message: "Server Error" });
+  }
+};

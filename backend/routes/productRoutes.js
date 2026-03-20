@@ -14,5 +14,6 @@ router.get("/", authMiddleware, getProducts);
 router.put("/:id", authMiddleware, updateProduct);
 router.delete("/:id", authMiddleware, deleteProduct);
 router.patch("/status/:id", authMiddleware, toggleStatus);
+router.get("/:id", authMiddleware, getSingleProduct);
 
 module.exports = router;
