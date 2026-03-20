@@ -85,7 +85,7 @@ const Product = () => {
 
   const handleEdit = (product) => {
     setEditingId(product.id);
-    setForm({ name: product.name, category: "", selling_price: "" }); // Only allow editing name
+    setForm({ name: product.name, category: product.category, unit: product.unit, selling_price: product.selling_price });
     setShowForm(true);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -95,15 +95,32 @@ const Product = () => {
   // Handle save (create or update)
   const handleSave = async () => {
     try {
+      if (!form.name || !form.category || !form.selling_price) {
+        toast.error("Please fill all fields.");
+        return;
+      }
+
       if (editingId) {
-        // Update existing product
-        await axios.put(`/products/${editingId}`, form);
-        toast.success("Product updated successfully!");
+        // If editing, check if any field other than name is changed
+        const productData = await axios.get(`/products/${editingId}`);
+        const product = productData.data;
+
+        if (product.name !== form.name || product.category !== form.category || product.selling_price !== form.selling_price) {
+          // If any field other than name is changed, make the old one inactive and create a new entry
+          await axios.put(`/products/status/${editingId}`); // Update status to inactive
+          await axios.post("/products", form); // Create new product entry
+          toast.success("Product updated and new product created.");
+        } else {
+          // Update the existing product
+          await axios.put(`/products/${editingId}`, form);
+          toast.success("Product updated successfully!");
+        }
       } else {
-        // Create a new product
+        // Create new product
         await axios.post("/products", form);
         toast.success("Product added successfully!");
       }
+
       resetForm();
     } catch (err) {
       toast.error("Failed to save product");
@@ -140,13 +157,13 @@ const Product = () => {
                   <input required type="text" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="form-input-custom" placeholder="Enter name" />
                 </InputGroup>
                 <InputGroup label="Category" icon={<Layers size={14}/>}>
-                  <input disabled={editingId} type="text" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} className="form-input-custom" placeholder="e.g. Dairy" />
+                  <input required type="text" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} className="form-input-custom" placeholder="e.g. Dairy" />
                 </InputGroup>
                 <InputGroup label="Unit" icon={<Package size={14}/>}>
-                  <input disabled={editingId} type="text" value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })} className="form-input-custom" placeholder="Litre / KG" />
+                  <input required type="text" value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })} className="form-input-custom" placeholder="Litre / KG" />
                 </InputGroup>
                 <InputGroup label="Price" icon={<IndianRupee size={14}/>}>
-                  <input disabled={editingId} type="number" value={form.selling_price} onChange={(e) => setForm({ ...form, selling_price: e.target.value })} className="form-input-custom" placeholder="0.00" />
+                  <input required type="number" value={form.selling_price} onChange={(e) => setForm({ ...form, selling_price: e.target.value })} className="form-input-custom" placeholder="0.00" />
                 </InputGroup>
               </div>
               <div className="flex flex-col sm:flex-row justify-end gap-3 pt-4 border-t border-slate-50">
