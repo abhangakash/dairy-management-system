@@ -4,7 +4,6 @@ const authMiddleware = require("../middleware/authMiddleware");
 const {
   createProduct,
   getProducts,
-  getSingleProduct,
   updateProduct,
   deleteProduct,
   toggleStatus,
@@ -12,13 +11,8 @@ const {
 
 router.post("/", authMiddleware, createProduct);
 router.get("/", authMiddleware, getProducts);
-
-// IMPORTANT: specific routes like /status/:id must come BEFORE /:id
-// otherwise Express matches "status" as the :id param
-router.patch("/status/:id", authMiddleware, toggleStatus);
-
-router.get("/:id", authMiddleware, getSingleProduct);
 router.put("/:id", authMiddleware, updateProduct);
 router.delete("/:id", authMiddleware, deleteProduct);
+router.patch("/status/:id", authMiddleware, toggleStatus);
 
 module.exports = router;
