@@ -3,7 +3,7 @@ import axios from "../../api/axios";
 import Layout from "../../components/layout/Layout";
 import toast from "react-hot-toast";
 import { 
-  Plus, Search, Edit3, Trash2, Power, 
+  Plus, Search, Edit3, Trash2, 
   Package, ChevronLeft, ChevronRight,
   X, Save, IndianRupee, Tag, Layers
 } from "lucide-react";
@@ -27,13 +27,10 @@ const StatusBadge = React.memo(({ status }) => (
   </div>
 ));
 
-const ActionButtons = React.memo(({ onEdit, onToggle, onDelete, isMobile = false }) => (
+const ActionButtons = React.memo(({ onEdit, onDelete, isMobile = false }) => (
   <div className={`flex items-center gap-2 ${isMobile ? "w-full" : "justify-end"}`}>
     <button onClick={onEdit} className={`p-2.5 text-indigo-600 hover:bg-indigo-50 rounded-xl border border-transparent hover:border-indigo-100 transition-all ${isMobile ? "flex-1 bg-indigo-50/50 flex justify-center" : ""}`}>
       <Edit3 size={18} />
-    </button>
-    <button onClick={onToggle} className={`p-2.5 text-amber-500 hover:bg-amber-50 rounded-xl border border-transparent hover:border-amber-100 transition-all ${isMobile ? "flex-1 bg-amber-50/50 flex justify-center" : ""}`}>
-      <Power size={18} />
     </button>
     <button onClick={onDelete} className={`p-2.5 text-rose-500 hover:bg-rose-50 rounded-xl border border-transparent hover:border-rose-100 transition-all ${isMobile ? "flex-1 bg-rose-50/50 flex justify-center" : ""}`}>
       <Trash2 size={18} />
@@ -88,12 +85,30 @@ const Product = () => {
 
   const handleEdit = (product) => {
     setEditingId(product.id);
-    setForm(product);
+    setForm({ name: product.name, category: "", selling_price: "" }); // Only allow editing name
     setShowForm(true);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const totalPages = useMemo(() => Math.ceil(total / limit), [total, limit]);
+
+  // Handle save (create or update)
+  const handleSave = async () => {
+    try {
+      if (editingId) {
+        // Update existing product
+        await axios.put(`/products/${editingId}`, form);
+        toast.success("Product updated successfully!");
+      } else {
+        // Create a new product
+        await axios.post("/products", form);
+        toast.success("Product added successfully!");
+      }
+      resetForm();
+    } catch (err) {
+      toast.error("Failed to save product");
+    }
+  };
 
   return (
     <Layout>
@@ -125,18 +140,18 @@ const Product = () => {
                   <input required type="text" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="form-input-custom" placeholder="Enter name" />
                 </InputGroup>
                 <InputGroup label="Category" icon={<Layers size={14}/>}>
-                  <input type="text" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} className="form-input-custom" placeholder="e.g. Dairy" />
+                  <input disabled={editingId} type="text" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} className="form-input-custom" placeholder="e.g. Dairy" />
                 </InputGroup>
                 <InputGroup label="Unit" icon={<Package size={14}/>}>
-                  <input type="text" value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })} className="form-input-custom" placeholder="Litre / KG" />
+                  <input disabled={editingId} type="text" value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })} className="form-input-custom" placeholder="Litre / KG" />
                 </InputGroup>
                 <InputGroup label="Price" icon={<IndianRupee size={14}/>}>
-                  <input type="number" value={form.selling_price} onChange={(e) => setForm({ ...form, selling_price: e.target.value })} className="form-input-custom" placeholder="0.00" />
+                  <input disabled={editingId} type="number" value={form.selling_price} onChange={(e) => setForm({ ...form, selling_price: e.target.value })} className="form-input-custom" placeholder="0.00" />
                 </InputGroup>
               </div>
               <div className="flex flex-col sm:flex-row justify-end gap-3 pt-4 border-t border-slate-50">
                 <button type="button" onClick={resetForm} className="w-full sm:w-auto px-8 py-3 text-slate-400 font-bold order-2 sm:order-1">Discard</button>
-                <button onClick={() => toast.success("Feature coming soon")} className="w-full sm:w-auto flex items-center justify-center gap-2 bg-indigo-600 text-white px-10 py-3.5 rounded-xl font-bold order-1 sm:order-2">
+                <button onClick={handleSave} className="w-full sm:w-auto flex items-center justify-center gap-2 bg-indigo-600 text-white px-10 py-3.5 rounded-xl font-bold order-1 sm:order-2">
                   <Save size={18} /> {editingId ? "Update Product" : "Save Product"}
                 </button>
               </div>
@@ -202,7 +217,7 @@ const Product = () => {
                       <StatusBadge status={p.status || 'active'} />
                     </td>
                     <td className="px-8 py-4">
-                      <ActionButtons onEdit={() => handleEdit(p)} />
+                      <ActionButtons onEdit={() => handleEdit(p)} onDelete={() => toast.error("Delete not implemented")} />
                     </td>
                   </tr>
                 ))}
