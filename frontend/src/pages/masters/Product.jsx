@@ -8,241 +8,440 @@ import {
   X, Save, IndianRupee, Tag, Layers
 } from "lucide-react";
 
-const Product = () => {
+// --- HELPERS ---
+const InputGroup = React.memo(({ label, icon, error, children }) => (
+  <div className="flex flex-col gap-1.5">
+    <label className="flex items-center gap-2 text-[10px] sm:text-[11px] font-black text-slate-400 uppercase tracking-wider ml-1">
+      {icon} {label}
+    </label>
+    {children}
+    {error && <p className="text-[10px] text-rose-500 font-semibold ml-1">{error}</p>}
+  </div>
+));
 
+const StatusBadge = React.memo(({ status }) => (
+  <div className={`flex items-center justify-center gap-1.5 text-[10px] font-black uppercase px-2.5 py-1 rounded-lg w-fit ${
+    status === "active" ? "text-emerald-600 bg-emerald-50" : "text-rose-600 bg-rose-50"
+  }`}>
+    <div className={`w-1.5 h-1.5 rounded-full ${status === "active" ? "bg-emerald-500 animate-pulse" : "bg-rose-500"}`} />
+    {status}
+  </div>
+));
+
+const ActionButtons = React.memo(({ onEdit, onDelete, isMobile = false }) => (
+  <div className={`flex items-center gap-2 ${isMobile ? "w-full" : "justify-end"}`}>
+    <button
+      onClick={onEdit}
+      className={`p-2.5 text-indigo-600 hover:bg-indigo-50 rounded-xl border border-transparent hover:border-indigo-100 transition-all ${isMobile ? "flex-1 bg-indigo-50/50 flex justify-center" : ""}`}
+    >
+      <Edit3 size={18} />
+    </button>
+    <button
+      onClick={onDelete}
+      className={`p-2.5 text-rose-500 hover:bg-rose-50 rounded-xl border border-transparent hover:border-rose-100 transition-all ${isMobile ? "flex-1 bg-rose-50/50 flex justify-center" : ""}`}
+    >
+      <Trash2 size={18} />
+    </button>
+  </div>
+));
+
+// --- VALIDATION ---
+const validateForm = (form) => {
+  const errors = {};
+  if (!form.name.trim()) errors.name = "Product name is required.";
+  if (!form.category.trim()) errors.category = "Category is required.";
+  if (!form.unit.trim()) errors.unit = "Unit is required.";
+  if (!form.selling_price) {
+    errors.selling_price = "Price is required.";
+  } else if (isNaN(form.selling_price) || Number(form.selling_price) <= 0) {
+    errors.selling_price = "Enter a valid price greater than 0.";
+  }
+  return errors;
+};
+
+const EMPTY_FORM = { name: "", category: "", unit: "", selling_price: "" };
+
+const Product = () => {
   const [products, setProducts] = useState([]);
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({
-    name: "",
-    category: "",
-    unit: "",
-    selling_price: ""
-  });
-  const [errors, setErrors] = useState({});
+  const [form, setForm] = useState(EMPTY_FORM);
+  // originalProduct stores the product snapshot at the time Edit is clicked
+  const [originalProduct, setOriginalProduct] = useState(null);
   const [editingId, setEditingId] = useState(null);
-
+  const [errors, setErrors] = useState({});
+  const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(10);
   const [total, setTotal] = useState(0);
 
-  // debounce
+  // Debounce search
   useEffect(() => {
-    const t = setTimeout(() => setDebouncedSearch(search), 400);
-    return () => clearTimeout(t);
+    const handler = setTimeout(() => setDebouncedSearch(search), 400);
+    return () => clearTimeout(handler);
   }, [search]);
 
-  // fetch
-  const fetchProducts = useCallback(async () => {
+  const fetchProducts = useCallback(async (signal) => {
+    setLoading(true);
     try {
-      const res = await axios.get("/products", {
-        params: { page, limit, search: debouncedSearch }
+      const res = await axios.get(`/products`, {
+        params: { page, limit, search: debouncedSearch },
+        signal,
       });
       setProducts(res.data.data || []);
       setTotal(res.data.total || 0);
-    } catch {
-      toast.error("Load failed");
+    } catch (err) {
+      if (err.name !== "CanceledError") toast.error("Failed to load products");
+    } finally {
+      setLoading(false);
     }
   }, [page, limit, debouncedSearch]);
 
   useEffect(() => {
-    fetchProducts();
+    const controller = new AbortController();
+    fetchProducts(controller.signal);
+    return () => controller.abort();
   }, [fetchProducts]);
 
   const resetForm = () => {
-    setForm({ name: "", category: "", unit: "", selling_price: "" });
+    setForm(EMPTY_FORM);
     setErrors({});
     setEditingId(null);
+    setOriginalProduct(null);
     setShowForm(false);
   };
 
-  const handleEdit = (p) => {
-    setEditingId(p.id);
-    setForm(p);
+  const handleEdit = (product) => {
+    setEditingId(product.id);
+    setOriginalProduct(product); // snapshot for comparison
+    setForm({
+      name: product.name,
+      category: product.category,
+      unit: product.unit,
+      selling_price: product.selling_price,
+    });
+    setErrors({});
     setShowForm(true);
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  // ✅ VALIDATION
-  const validate = () => {
-    let err = {};
-    if (!form.name) err.name = "Required";
-    if (!form.category) err.category = "Required";
-    if (!form.unit) err.unit = "Required";
-    if (!form.selling_price) err.selling_price = "Required";
-    setErrors(err);
-    return Object.keys(err).length === 0;
-  };
-
-  // ✅ SAVE LOGIC (MAIN PART)
-  const handleSave = async () => {
-    if (!validate()) return;
-
-    try {
-      if (editingId) {
-        const res = await axios.get(`/products/${editingId}`);
-        const old = res.data;
-
-        const isOtherChanged =
-          old.category !== form.category ||
-          old.unit !== form.unit ||
-          old.selling_price != form.selling_price;
-
-        if (isOtherChanged) {
-          // 🔴 old inactive
-          await axios.patch(`/products/status/${editingId}`);
-
-          // 🟢 new product
-          await axios.post("/products", form);
-
-          toast.success("New product created, old inactive");
-        } else {
-          // 🟢 only name update
-          await axios.put(`/products/${editingId}`, form);
-          toast.success("Product updated");
-        }
-      } else {
-        await axios.post("/products", form);
-        toast.success("Product created");
-      }
-
-      fetchProducts();
-      resetForm();
-
-    } catch {
-      toast.error("Save failed");
-    }
-  };
-
-  // ✅ DELETE
   const handleDelete = async (id) => {
+    if (!window.confirm("Are you sure you want to delete this product?")) return;
     try {
       await axios.delete(`/products/${id}`);
-      toast.success("Deleted");
-      fetchProducts();
+      toast.success("Product deleted successfully!");
+      fetchProducts(new AbortController().signal);
     } catch {
-      toast.error("Delete failed");
+      toast.error("Failed to delete product");
     }
   };
 
   const totalPages = useMemo(() => Math.ceil(total / limit), [total, limit]);
 
+  const handleSave = async () => {
+    // JS Validation
+    const validationErrors = validateForm(form);
+    if (Object.keys(validationErrors).length > 0) {
+      setErrors(validationErrors);
+      return;
+    }
+    setErrors({});
+
+    try {
+      if (editingId) {
+        const orig = originalProduct;
+
+        // Check if only name changed — simple update is fine
+        const onlyNameChanged =
+          form.name.trim() !== orig.name &&
+          form.category.trim() === orig.category &&
+          form.unit.trim() === orig.unit &&
+          String(form.selling_price) === String(orig.selling_price);
+
+        const nothingChanged =
+          form.name.trim() === orig.name &&
+          form.category.trim() === orig.category &&
+          form.unit.trim() === orig.unit &&
+          String(form.selling_price) === String(orig.selling_price);
+
+        if (nothingChanged) {
+          toast("No changes detected.", { icon: "ℹ️" });
+          return;
+        }
+
+        if (onlyNameChanged) {
+          // Just update the name — no business logic impact
+          await axios.put(`/products/${editingId}`, form);
+          toast.success("Product name updated successfully!");
+        } else {
+          // Price / category / unit changed:
+          // 1. Mark old product inactive
+          // 2. Create new active product
+          await axios.patch(`/products/status/${editingId}`); // toggles to inactive
+          await axios.post("/products", {
+            name: form.name,
+            category: form.category,
+            unit: form.unit,
+            selling_price: form.selling_price,
+          });
+          toast.success("Old product archived. New product entry created.");
+        }
+      } else {
+        await axios.post("/products", form);
+        toast.success("Product added successfully!");
+      }
+
+      resetForm();
+      fetchProducts(new AbortController().signal);
+    } catch {
+      toast.error("Failed to save product");
+    }
+  };
+
   return (
     <Layout>
-      <div className="p-6 space-y-6">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
 
         {/* HEADER */}
-        <div className="flex justify-between items-center">
-          <h2 className="text-2xl font-bold">Products</h2>
-          <button onClick={() => setShowForm(!showForm)}
-            className="bg-indigo-600 text-white px-4 py-2 rounded">
-            {showForm ? "Close" : "Add"}
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div>
+            <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">Product Master</h2>
+            <p className="text-slate-500 text-xs sm:text-sm font-medium">Manage your inventory and pricing</p>
+          </div>
+          <button
+            onClick={() => { editingId ? resetForm() : setShowForm(!showForm); }}
+            className={`w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-3.5 rounded-2xl font-bold transition-all active:scale-95 shadow-lg ${
+              showForm
+                ? "bg-white text-slate-600 border border-slate-200"
+                : "bg-indigo-600 text-white shadow-indigo-200 hover:bg-indigo-700"
+            }`}
+          >
+            {showForm ? <X size={18} /> : <Plus size={18} />}
+            <span className="text-sm">{showForm ? "Close" : "Add Product"}</span>
           </button>
         </div>
 
         {/* FORM */}
         {showForm && (
-          <div className="bg-white p-6 rounded shadow space-y-4">
+          <div className="bg-white p-5 sm:p-8 rounded-[1.5rem] sm:rounded-[2.5rem] shadow-xl border border-indigo-50 animate-in fade-in slide-in-from-top-4 duration-300">
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
 
-            {/* NAME */}
-            <div>
-              <label>Name *</label>
-              <input
-                value={form.name}
-                onChange={e => setForm({ ...form, name: e.target.value })}
-                className="input"
-              />
-              {errors.name && <p className="text-red-500 text-xs">{errors.name}</p>}
+                <InputGroup label="Product Name" icon={<Tag size={14} />} error={errors.name}>
+                  <input
+                    type="text"
+                    value={form.name}
+                    onChange={(e) => setForm({ ...form, name: e.target.value })}
+                    className={`form-input-custom ${errors.name ? "border-rose-300 focus:border-rose-400" : ""}`}
+                    placeholder="Enter name"
+                  />
+                </InputGroup>
+
+                <InputGroup label="Category" icon={<Layers size={14} />} error={errors.category}>
+                  <input
+                    type="text"
+                    value={form.category}
+                    onChange={(e) => setForm({ ...form, category: e.target.value })}
+                    className={`form-input-custom ${errors.category ? "border-rose-300 focus:border-rose-400" : ""}`}
+                    placeholder="e.g. Dairy"
+                  />
+                </InputGroup>
+
+                <InputGroup label="Unit" icon={<Package size={14} />} error={errors.unit}>
+                  <input
+                    type="text"
+                    value={form.unit}
+                    onChange={(e) => setForm({ ...form, unit: e.target.value })}
+                    className={`form-input-custom ${errors.unit ? "border-rose-300 focus:border-rose-400" : ""}`}
+                    placeholder="Litre / KG"
+                  />
+                </InputGroup>
+
+                <InputGroup label="Price" icon={<IndianRupee size={14} />} error={errors.selling_price}>
+                  <input
+                    type="number"
+                    value={form.selling_price}
+                    onChange={(e) => setForm({ ...form, selling_price: e.target.value })}
+                    className={`form-input-custom ${errors.selling_price ? "border-rose-300 focus:border-rose-400" : ""}`}
+                    placeholder="0.00"
+                  />
+                </InputGroup>
+
+              </div>
+              <div className="flex flex-col sm:flex-row justify-end gap-3 pt-4 border-t border-slate-50">
+                <button type="button" onClick={resetForm} className="w-full sm:w-auto px-8 py-3 text-slate-400 font-bold order-2 sm:order-1">
+                  Discard
+                </button>
+                <button
+                  onClick={handleSave}
+                  className="w-full sm:w-auto flex items-center justify-center gap-2 bg-indigo-600 text-white px-10 py-3.5 rounded-xl font-bold order-1 sm:order-2 hover:bg-indigo-700 transition-colors"
+                >
+                  <Save size={18} /> {editingId ? "Update Product" : "Save Product"}
+                </button>
+              </div>
             </div>
-
-            {/* CATEGORY */}
-            <div>
-              <label>Category *</label>
-              <input
-                value={form.category}
-                onChange={e => setForm({ ...form, category: e.target.value })}
-                className="input"
-              />
-              {errors.category && <p className="text-red-500 text-xs">{errors.category}</p>}
-            </div>
-
-            {/* UNIT */}
-            <div>
-              <label>Unit *</label>
-              <input
-                value={form.unit}
-                onChange={e => setForm({ ...form, unit: e.target.value })}
-                className="input"
-              />
-              {errors.unit && <p className="text-red-500 text-xs">{errors.unit}</p>}
-            </div>
-
-            {/* PRICE */}
-            <div>
-              <label>Price *</label>
-              <input
-                value={form.selling_price}
-                onChange={e => setForm({ ...form, selling_price: e.target.value })}
-                className="input"
-              />
-              {errors.selling_price && <p className="text-red-500 text-xs">{errors.selling_price}</p>}
-            </div>
-
-            <button onClick={handleSave}
-              className="bg-green-600 text-white px-4 py-2 rounded">
-              {editingId ? "Update" : "Save"}
-            </button>
-
           </div>
         )}
 
-        {/* SEARCH */}
-        <input
-          placeholder="Search..."
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          className="input"
-        />
+        {/* SEARCH & FILTER BAR */}
+        <div className="flex flex-col sm:flex-row gap-3">
+          <div className="relative flex-1">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+            <input
+              type="text"
+              placeholder="Search by name..."
+              className="w-full pl-11 pr-4 py-3.5 bg-white border border-transparent rounded-2xl shadow-sm outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-sm"
+              value={search}
+              onChange={(e) => { setPage(1); setSearch(e.target.value); }}
+            />
+          </div>
+          <select
+            value={limit}
+            onChange={(e) => { setPage(1); setLimit(Number(e.target.value)); }}
+            className="bg-white border-r-8 border-transparent rounded-2xl py-3.5 px-4 shadow-sm font-bold text-slate-600 text-sm outline-none cursor-pointer"
+          >
+            {[10, 20, 50].map((v) => <option key={v} value={v}>Show {v}</option>)}
+          </select>
+        </div>
 
-        {/* TABLE */}
-        <table className="w-full bg-white shadow rounded">
-          <thead>
-            <tr>
-              <th>Name</th>
-              <th>Category</th>
-              <th>Unit</th>
-              <th>Price</th>
-              <th>Status</th>
-              <th></th>
-            </tr>
-          </thead>
+        {/* DATA CONTAINER */}
+        <div className="relative min-h-[300px]">
+          {loading && (
+            <div className="absolute inset-0 bg-white/50 backdrop-blur-sm z-20 flex items-center justify-center rounded-3xl">
+              <div className="flex items-center gap-2 text-indigo-600 font-bold">
+                <div className="w-5 h-5 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+                Loading...
+              </div>
+            </div>
+          )}
 
-          <tbody>
-            {products.map(p => (
-              <tr key={p.id}>
-                <td>{p.name}</td>
-                <td>{p.category}</td>
-                <td>{p.unit}</td>
-                <td>{p.selling_price}</td>
-                <td>{p.status}</td>
+          {/* DESKTOP TABLE */}
+          <div className="hidden md:block bg-white rounded-[2rem] shadow-sm border border-slate-100 overflow-hidden">
+            <table className="w-full text-left">
+              <thead className="bg-slate-50/80 text-slate-400 text-[10px] uppercase tracking-widest font-black">
+                <tr>
+                  <th className="px-8 py-5">Product Details</th>
+                  <th className="px-6 py-5">Category</th>
+                  <th className="px-6 py-5 text-center">Unit</th>
+                  <th className="px-6 py-5 text-center">Price</th>
+                  <th className="px-6 py-5 text-center">Status</th>
+                  <th className="px-8 py-5 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-50 text-sm">
+                {products.length === 0 && !loading ? (
+                  <tr>
+                    <td colSpan={6} className="px-8 py-16 text-center text-slate-400 font-medium">
+                      No products found.
+                    </td>
+                  </tr>
+                ) : (
+                  products.map((p) => (
+                    <tr key={p.id} className="hover:bg-slate-50/50 transition-colors">
+                      <td className="px-8 py-4 font-bold text-slate-800">{p.name}</td>
+                      <td className="px-6 py-4">
+                        <span className="px-2.5 py-1 bg-indigo-50 text-indigo-600 rounded-lg text-[11px] font-bold">{p.category}</span>
+                      </td>
+                      <td className="px-6 py-4 text-center text-slate-500">{p.unit}</td>
+                      <td className="px-6 py-4 text-center font-black text-slate-900">₹{p.selling_price}</td>
+                      <td className="px-6 py-4">
+                        <div className="flex justify-center">
+                          <StatusBadge status={p.status || "active"} />
+                        </div>
+                      </td>
+                      <td className="px-8 py-4">
+                        <ActionButtons
+                          onEdit={() => handleEdit(p)}
+                          onDelete={() => handleDelete(p.id)}
+                        />
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
 
-                <td className="flex gap-2">
-                  <button onClick={() => handleEdit(p)}>✏️</button>
-                  <button onClick={() => handleDelete(p.id)}>🗑️</button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+          {/* MOBILE CARDS */}
+          <div className="md:hidden space-y-4">
+            {products.length === 0 && !loading ? (
+              <div className="bg-white p-10 rounded-2xl text-center text-slate-400 font-medium border border-slate-100">
+                No products found.
+              </div>
+            ) : (
+              products.map((p) => (
+                <div key={p.id} className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm space-y-4">
+                  <div className="flex justify-between items-start">
+                    <div className="space-y-1">
+                      <h4 className="font-bold text-slate-900 text-base leading-tight">{p.name}</h4>
+                      <div className="flex gap-2">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase">{p.category}</span>
+                        <span className="text-[10px] font-bold text-slate-400 uppercase">•</span>
+                        <span className="text-[10px] font-bold text-slate-400 uppercase">{p.unit}</span>
+                      </div>
+                    </div>
+                    <StatusBadge status={p.status || "active"} />
+                  </div>
+                  <div className="flex justify-between items-center py-3 border-y border-slate-50">
+                    <span className="text-xs font-medium text-slate-400">Selling Cost</span>
+                    <span className="text-lg font-black text-indigo-600">₹{p.selling_price}</span>
+                  </div>
+                  <ActionButtons
+                    onEdit={() => handleEdit(p)}
+                    onDelete={() => handleDelete(p.id)}
+                    isMobile
+                  />
+                </div>
+              ))
+            )}
+          </div>
+        </div>
 
         {/* PAGINATION */}
-        <div className="flex gap-4">
-          <button disabled={page === 1} onClick={() => setPage(p => p - 1)}>Prev</button>
-          <span>{page}/{totalPages || 1}</span>
-          <button disabled={page === totalPages} onClick={() => setPage(p => p + 1)}>Next</button>
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 py-2">
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest order-2 sm:order-1">
+            Total Records: {total}
+          </p>
+          <div className="flex items-center gap-1 bg-white p-1 rounded-2xl shadow-sm border border-slate-100 order-1 sm:order-2">
+            <button
+              disabled={page === 1}
+              onClick={() => setPage((p) => p - 1)}
+              className="p-2 disabled:opacity-20 text-slate-400 hover:text-indigo-600 transition-colors"
+            >
+              <ChevronLeft size={20} />
+            </button>
+            <div className="px-4 text-xs font-bold text-slate-600">Page {page} / {totalPages || 1}</div>
+            <button
+              disabled={page === totalPages || totalPages === 0}
+              onClick={() => setPage((p) => p + 1)}
+              className="p-2 disabled:opacity-20 text-slate-400 hover:text-indigo-600 transition-colors"
+            >
+              <ChevronRight size={20} />
+            </button>
+          </div>
         </div>
 
       </div>
+
+      <style jsx>{`
+        .form-input-custom {
+          width: 100%;
+          background-color: #f8fafc;
+          border: 1px solid #f1f5f9;
+          border-radius: 0.875rem;
+          padding: 0.75rem 1rem;
+          outline: none;
+          transition: all 0.2s;
+          font-weight: 500;
+          font-size: 0.875rem;
+        }
+        .form-input-custom:focus {
+          background-color: white;
+          border-color: #6366f1;
+          box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.08);
+        }
+      `}</style>
     </Layout>
   );
 };
