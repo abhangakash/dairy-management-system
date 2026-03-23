@@ -13,8 +13,8 @@ const {
 router.post("/", authMiddleware, createProduct);
 router.get("/", authMiddleware, getProducts);
 
-// IMPORTANT: /status/:id must come BEFORE /:id
-// otherwise Express treats "status" as the :id value
+// IMPORTANT: specific routes like /status/:id must come BEFORE /:id
+// otherwise Express matches "status" as the :id param
 router.patch("/status/:id", authMiddleware, toggleStatus);
 
 router.get("/:id", authMiddleware, getSingleProduct);

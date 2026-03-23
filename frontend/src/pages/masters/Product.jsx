@@ -8,6 +8,7 @@ import {
   X, Save, IndianRupee, Tag, Layers
 } from "lucide-react";
 
+// --- HELPERS ---
 const InputGroup = React.memo(({ label, icon, error, children }) => (
   <div className="flex flex-col gap-1.5">
     <label className="flex items-center gap-2 text-[10px] sm:text-[11px] font-black text-slate-400 uppercase tracking-wider ml-1">
@@ -29,39 +30,42 @@ const StatusBadge = React.memo(({ status }) => (
 
 const ActionButtons = React.memo(({ onEdit, onDelete, isMobile = false }) => (
   <div className={`flex items-center gap-2 ${isMobile ? "w-full" : "justify-end"}`}>
-    <button onClick={onEdit} className={`p-2.5 text-indigo-600 hover:bg-indigo-50 rounded-xl border border-transparent hover:border-indigo-100 transition-all ${isMobile ? "flex-1 bg-indigo-50/50 flex justify-center" : ""}`}>
+    <button
+      onClick={onEdit}
+      className={`p-2.5 text-indigo-600 hover:bg-indigo-50 rounded-xl border border-transparent hover:border-indigo-100 transition-all ${isMobile ? "flex-1 bg-indigo-50/50 flex justify-center" : ""}`}
+    >
       <Edit3 size={18} />
     </button>
-    <button onClick={onDelete} className={`p-2.5 text-rose-500 hover:bg-rose-50 rounded-xl border border-transparent hover:border-rose-100 transition-all ${isMobile ? "flex-1 bg-rose-50/50 flex justify-center" : ""}`}>
+    <button
+      onClick={onDelete}
+      className={`p-2.5 text-rose-500 hover:bg-rose-50 rounded-xl border border-transparent hover:border-rose-100 transition-all ${isMobile ? "flex-1 bg-rose-50/50 flex justify-center" : ""}`}
+    >
       <Trash2 size={18} />
     </button>
   </div>
 ));
 
+// --- VALIDATION ---
 const validateForm = (form) => {
   const errors = {};
   if (!form.name.trim()) errors.name = "Product name is required.";
   if (!form.category.trim()) errors.category = "Category is required.";
   if (!form.unit.trim()) errors.unit = "Unit is required.";
   if (!form.selling_price) {
-    errors.selling_price = "Selling price is required.";
+    errors.selling_price = "Price is required.";
   } else if (isNaN(form.selling_price) || Number(form.selling_price) <= 0) {
     errors.selling_price = "Enter a valid price greater than 0.";
-  }
-  if (!form.making_cost) {
-    errors.making_cost = "Making cost is required.";
-  } else if (isNaN(form.making_cost) || Number(form.making_cost) <= 0) {
-    errors.making_cost = "Enter a valid cost greater than 0.";
   }
   return errors;
 };
 
-const EMPTY_FORM = { name: "", category: "", unit: "", selling_price: "", making_cost: "" };
+const EMPTY_FORM = { name: "", category: "", unit: "", selling_price: "" };
 
 const Product = () => {
   const [products, setProducts] = useState([]);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
+  // originalProduct stores the product snapshot at the time Edit is clicked
   const [originalProduct, setOriginalProduct] = useState(null);
   const [editingId, setEditingId] = useState(null);
   const [errors, setErrors] = useState({});
@@ -72,6 +76,7 @@ const Product = () => {
   const [limit, setLimit] = useState(10);
   const [total, setTotal] = useState(0);
 
+  // Debounce search
   useEffect(() => {
     const handler = setTimeout(() => setDebouncedSearch(search), 400);
     return () => clearTimeout(handler);
@@ -109,13 +114,12 @@ const Product = () => {
 
   const handleEdit = (product) => {
     setEditingId(product.id);
-    setOriginalProduct(product);
+    setOriginalProduct(product); // snapshot for comparison
     setForm({
       name: product.name,
       category: product.category,
       unit: product.unit,
       selling_price: product.selling_price,
-      making_cost: product.making_cost,
     });
     setErrors({});
     setShowForm(true);
@@ -135,16 +139,8 @@ const Product = () => {
 
   const totalPages = useMemo(() => Math.ceil(total / limit), [total, limit]);
 
-  // Always send numbers as numbers — fixes 400 from validators expecting numeric types
-  const buildPayload = (f) => ({
-    name: f.name.trim(),
-    category: f.category.trim(),
-    unit: f.unit.trim(),
-    selling_price: Number(f.selling_price),
-    making_cost: Number(f.making_cost),
-  });
-
   const handleSave = async () => {
+    // JS Validation
     const validationErrors = validateForm(form);
     if (Object.keys(validationErrors).length > 0) {
       setErrors(validationErrors);
@@ -156,14 +152,18 @@ const Product = () => {
       if (editingId) {
         const orig = originalProduct;
 
-        const nameChanged       = form.name.trim()           !== orig.name;
-        const categoryChanged   = form.category.trim()       !== orig.category;
-        const unitChanged       = form.unit.trim()           !== orig.unit;
-        const priceChanged      = Number(form.selling_price) !== Number(orig.selling_price);
-        const makingCostChanged = Number(form.making_cost)   !== Number(orig.making_cost);
+        // Check if only name changed — simple update is fine
+        const onlyNameChanged =
+          form.name.trim() !== orig.name &&
+          form.category.trim() === orig.category &&
+          form.unit.trim() === orig.unit &&
+          String(form.selling_price) === String(orig.selling_price);
 
-        const nothingChanged  = !nameChanged && !categoryChanged && !unitChanged && !priceChanged && !makingCostChanged;
-        const onlyNameChanged =  nameChanged && !categoryChanged && !unitChanged && !priceChanged && !makingCostChanged;
+        const nothingChanged =
+          form.name.trim() === orig.name &&
+          form.category.trim() === orig.category &&
+          form.unit.trim() === orig.unit &&
+          String(form.selling_price) === String(orig.selling_price);
 
         if (nothingChanged) {
           toast("No changes detected.", { icon: "ℹ️" });
@@ -171,25 +171,31 @@ const Product = () => {
         }
 
         if (onlyNameChanged) {
-          // Name-only change: safe to update in-place, no cost calculation impact
-          await axios.put(`/products/${editingId}`, buildPayload(form));
-          toast.success("Product updated successfully!");
+          // Just update the name — no business logic impact
+          await axios.put(`/products/${editingId}`, form);
+          toast.success("Product name updated successfully!");
         } else {
-          // Any cost/unit/category change: archive old → create new
-          await axios.patch(`/products/status/${editingId}`);
-          await axios.post("/products", buildPayload(form));
+          // Price / category / unit changed:
+          // 1. Mark old product inactive
+          // 2. Create new active product
+          await axios.patch(`/products/status/${editingId}`); // toggles to inactive
+          await axios.post("/products", {
+            name: form.name,
+            category: form.category,
+            unit: form.unit,
+            selling_price: form.selling_price,
+          });
           toast.success("Old product archived. New product entry created.");
         }
       } else {
-        await axios.post("/products", buildPayload(form));
+        await axios.post("/products", form);
         toast.success("Product added successfully!");
       }
 
       resetForm();
       fetchProducts(new AbortController().signal);
-    } catch (err) {
-      const msg = err?.response?.data?.message || "Failed to save product";
-      toast.error(msg);
+    } catch {
+      toast.error("Failed to save product");
     }
   };
 
@@ -206,7 +212,9 @@ const Product = () => {
           <button
             onClick={() => { editingId ? resetForm() : setShowForm(!showForm); }}
             className={`w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-3.5 rounded-2xl font-bold transition-all active:scale-95 shadow-lg ${
-              showForm ? "bg-white text-slate-600 border border-slate-200" : "bg-indigo-600 text-white shadow-indigo-200 hover:bg-indigo-700"
+              showForm
+                ? "bg-white text-slate-600 border border-slate-200"
+                : "bg-indigo-600 text-white shadow-indigo-200 hover:bg-indigo-700"
             }`}
           >
             {showForm ? <X size={18} /> : <Plus size={18} />}
@@ -218,47 +226,57 @@ const Product = () => {
         {showForm && (
           <div className="bg-white p-5 sm:p-8 rounded-[1.5rem] sm:rounded-[2.5rem] shadow-xl border border-indigo-50 animate-in fade-in slide-in-from-top-4 duration-300">
             <div className="space-y-6">
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
 
                 <InputGroup label="Product Name" icon={<Tag size={14} />} error={errors.name}>
-                  <input type="text" value={form.name}
+                  <input
+                    type="text"
+                    value={form.name}
                     onChange={(e) => setForm({ ...form, name: e.target.value })}
-                    className={`form-input-custom ${errors.name ? "!border-rose-300" : ""}`}
-                    placeholder="Enter name" />
+                    className={`form-input-custom ${errors.name ? "border-rose-300 focus:border-rose-400" : ""}`}
+                    placeholder="Enter name"
+                  />
                 </InputGroup>
 
                 <InputGroup label="Category" icon={<Layers size={14} />} error={errors.category}>
-                  <input type="text" value={form.category}
+                  <input
+                    type="text"
+                    value={form.category}
                     onChange={(e) => setForm({ ...form, category: e.target.value })}
-                    className={`form-input-custom ${errors.category ? "!border-rose-300" : ""}`}
-                    placeholder="e.g. Dairy" />
+                    className={`form-input-custom ${errors.category ? "border-rose-300 focus:border-rose-400" : ""}`}
+                    placeholder="e.g. Dairy"
+                  />
                 </InputGroup>
 
                 <InputGroup label="Unit" icon={<Package size={14} />} error={errors.unit}>
-                  <input type="text" value={form.unit}
+                  <input
+                    type="text"
+                    value={form.unit}
                     onChange={(e) => setForm({ ...form, unit: e.target.value })}
-                    className={`form-input-custom ${errors.unit ? "!border-rose-300" : ""}`}
-                    placeholder="Litre / KG" />
+                    className={`form-input-custom ${errors.unit ? "border-rose-300 focus:border-rose-400" : ""}`}
+                    placeholder="Litre / KG"
+                  />
                 </InputGroup>
 
-                <InputGroup label="Selling Price" icon={<IndianRupee size={14} />} error={errors.selling_price}>
-                  <input type="number" value={form.selling_price}
+                <InputGroup label="Price" icon={<IndianRupee size={14} />} error={errors.selling_price}>
+                  <input
+                    type="number"
+                    value={form.selling_price}
                     onChange={(e) => setForm({ ...form, selling_price: e.target.value })}
-                    className={`form-input-custom ${errors.selling_price ? "!border-rose-300" : ""}`}
-                    placeholder="0.00" />
-                </InputGroup>
-
-                <InputGroup label="Making Cost" icon={<IndianRupee size={14} />} error={errors.making_cost}>
-                  <input type="number" value={form.making_cost}
-                    onChange={(e) => setForm({ ...form, making_cost: e.target.value })}
-                    className={`form-input-custom ${errors.making_cost ? "!border-rose-300" : ""}`}
-                    placeholder="0.00" />
+                    className={`form-input-custom ${errors.selling_price ? "border-rose-300 focus:border-rose-400" : ""}`}
+                    placeholder="0.00"
+                  />
                 </InputGroup>
 
               </div>
               <div className="flex flex-col sm:flex-row justify-end gap-3 pt-4 border-t border-slate-50">
-                <button type="button" onClick={resetForm} className="w-full sm:w-auto px-8 py-3 text-slate-400 font-bold order-2 sm:order-1">Discard</button>
-                <button onClick={handleSave} className="w-full sm:w-auto flex items-center justify-center gap-2 bg-indigo-600 text-white px-10 py-3.5 rounded-xl font-bold order-1 sm:order-2 hover:bg-indigo-700 transition-colors">
+                <button type="button" onClick={resetForm} className="w-full sm:w-auto px-8 py-3 text-slate-400 font-bold order-2 sm:order-1">
+                  Discard
+                </button>
+                <button
+                  onClick={handleSave}
+                  className="w-full sm:w-auto flex items-center justify-center gap-2 bg-indigo-600 text-white px-10 py-3.5 rounded-xl font-bold order-1 sm:order-2 hover:bg-indigo-700 transition-colors"
+                >
                   <Save size={18} /> {editingId ? "Update Product" : "Save Product"}
                 </button>
               </div>
@@ -270,12 +288,19 @@ const Product = () => {
         <div className="flex flex-col sm:flex-row gap-3">
           <div className="relative flex-1">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-            <input type="text" placeholder="Search by name..."
+            <input
+              type="text"
+              placeholder="Search by name..."
               className="w-full pl-11 pr-4 py-3.5 bg-white border border-transparent rounded-2xl shadow-sm outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-sm"
-              value={search} onChange={(e) => { setPage(1); setSearch(e.target.value); }} />
+              value={search}
+              onChange={(e) => { setPage(1); setSearch(e.target.value); }}
+            />
           </div>
-          <select value={limit} onChange={(e) => { setPage(1); setLimit(Number(e.target.value)); }}
-            className="bg-white border-r-8 border-transparent rounded-2xl py-3.5 px-4 shadow-sm font-bold text-slate-600 text-sm outline-none cursor-pointer">
+          <select
+            value={limit}
+            onChange={(e) => { setPage(1); setLimit(Number(e.target.value)); }}
+            className="bg-white border-r-8 border-transparent rounded-2xl py-3.5 px-4 shadow-sm font-bold text-slate-600 text-sm outline-none cursor-pointer"
+          >
             {[10, 20, 50].map((v) => <option key={v} value={v}>Show {v}</option>)}
           </select>
         </div>
@@ -299,8 +324,7 @@ const Product = () => {
                   <th className="px-8 py-5">Product Details</th>
                   <th className="px-6 py-5">Category</th>
                   <th className="px-6 py-5 text-center">Unit</th>
-                  <th className="px-6 py-5 text-center">Making Cost</th>
-                  <th className="px-6 py-5 text-center">Selling Price</th>
+                  <th className="px-6 py-5 text-center">Price</th>
                   <th className="px-6 py-5 text-center">Status</th>
                   <th className="px-8 py-5 text-right">Actions</th>
                 </tr>
@@ -308,17 +332,18 @@ const Product = () => {
               <tbody className="divide-y divide-slate-50 text-sm">
                 {products.length === 0 && !loading ? (
                   <tr>
-                    <td colSpan={7} className="px-8 py-16 text-center text-slate-400 font-medium">No products found.</td>
+                    <td colSpan={6} className="px-8 py-16 text-center text-slate-400 font-medium">
+                      No products found.
+                    </td>
                   </tr>
                 ) : (
                   products.map((p) => (
-                    <tr key={p.id} className="hover:bg-slate-50/50 transition-colors group">
+                    <tr key={p.id} className="hover:bg-slate-50/50 transition-colors">
                       <td className="px-8 py-4 font-bold text-slate-800">{p.name}</td>
                       <td className="px-6 py-4">
                         <span className="px-2.5 py-1 bg-indigo-50 text-indigo-600 rounded-lg text-[11px] font-bold">{p.category}</span>
                       </td>
                       <td className="px-6 py-4 text-center text-slate-500">{p.unit}</td>
-                      <td className="px-6 py-4 text-center font-semibold text-slate-600">₹{p.making_cost}</td>
                       <td className="px-6 py-4 text-center font-black text-slate-900">₹{p.selling_price}</td>
                       <td className="px-6 py-4">
                         <div className="flex justify-center">
@@ -326,7 +351,10 @@ const Product = () => {
                         </div>
                       </td>
                       <td className="px-8 py-4">
-                        <ActionButtons onEdit={() => handleEdit(p)} onDelete={() => handleDelete(p.id)} />
+                        <ActionButtons
+                          onEdit={() => handleEdit(p)}
+                          onDelete={() => handleDelete(p.id)}
+                        />
                       </td>
                     </tr>
                   ))
@@ -338,7 +366,9 @@ const Product = () => {
           {/* MOBILE CARDS */}
           <div className="md:hidden space-y-4">
             {products.length === 0 && !loading ? (
-              <div className="bg-white p-10 rounded-2xl text-center text-slate-400 font-medium border border-slate-100">No products found.</div>
+              <div className="bg-white p-10 rounded-2xl text-center text-slate-400 font-medium border border-slate-100">
+                No products found.
+              </div>
             ) : (
               products.map((p) => (
                 <div key={p.id} className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm space-y-4">
@@ -353,17 +383,15 @@ const Product = () => {
                     </div>
                     <StatusBadge status={p.status || "active"} />
                   </div>
-                  <div className="grid grid-cols-2 gap-3 py-3 border-y border-slate-50">
-                    <div>
-                      <p className="text-xs font-medium text-slate-400">Making Cost</p>
-                      <p className="text-base font-bold text-slate-700">₹{p.making_cost}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs font-medium text-slate-400">Selling Price</p>
-                      <p className="text-lg font-black text-indigo-600">₹{p.selling_price}</p>
-                    </div>
+                  <div className="flex justify-between items-center py-3 border-y border-slate-50">
+                    <span className="text-xs font-medium text-slate-400">Selling Cost</span>
+                    <span className="text-lg font-black text-indigo-600">₹{p.selling_price}</span>
                   </div>
-                  <ActionButtons onEdit={() => handleEdit(p)} onDelete={() => handleDelete(p.id)} isMobile />
+                  <ActionButtons
+                    onEdit={() => handleEdit(p)}
+                    onDelete={() => handleDelete(p.id)}
+                    isMobile
+                  />
                 </div>
               ))
             )}
@@ -372,11 +400,25 @@ const Product = () => {
 
         {/* PAGINATION */}
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 py-2">
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest order-2 sm:order-1">Total Records: {total}</p>
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest order-2 sm:order-1">
+            Total Records: {total}
+          </p>
           <div className="flex items-center gap-1 bg-white p-1 rounded-2xl shadow-sm border border-slate-100 order-1 sm:order-2">
-            <button disabled={page === 1} onClick={() => setPage((p) => p - 1)} className="p-2 disabled:opacity-20 text-slate-400 hover:text-indigo-600 transition-colors"><ChevronLeft size={20} /></button>
+            <button
+              disabled={page === 1}
+              onClick={() => setPage((p) => p - 1)}
+              className="p-2 disabled:opacity-20 text-slate-400 hover:text-indigo-600 transition-colors"
+            >
+              <ChevronLeft size={20} />
+            </button>
             <div className="px-4 text-xs font-bold text-slate-600">Page {page} / {totalPages || 1}</div>
-            <button disabled={page === totalPages || totalPages === 0} onClick={() => setPage((p) => p + 1)} className="p-2 disabled:opacity-20 text-slate-400 hover:text-indigo-600 transition-colors"><ChevronRight size={20} /></button>
+            <button
+              disabled={page === totalPages || totalPages === 0}
+              onClick={() => setPage((p) => p + 1)}
+              className="p-2 disabled:opacity-20 text-slate-400 hover:text-indigo-600 transition-colors"
+            >
+              <ChevronRight size={20} />
+            </button>
           </div>
         </div>
 
