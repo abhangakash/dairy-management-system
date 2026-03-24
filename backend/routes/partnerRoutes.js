@@ -11,8 +11,9 @@ const {
 
 router.post("/", authMiddleware, createPartner);
 router.get("/", authMiddleware, getPartners);
+// status/:id MUST be before /:id
+router.patch("/status/:id", authMiddleware, toggleStatus);
 router.put("/:id", authMiddleware, updatePartner);
 router.delete("/:id", authMiddleware, deletePartner);
-router.patch("/status/:id", authMiddleware, toggleStatus);
 
 module.exports = router;

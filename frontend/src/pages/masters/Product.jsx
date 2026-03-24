@@ -8,7 +8,6 @@ import {
   X, Save, IndianRupee, Tag, Layers, Wrench
 } from "lucide-react";
 
-// --- HELPERS ---
 const InputGroup = React.memo(({ label, icon, error, children }) => (
   <div className="flex flex-col gap-1.5">
     <label className="flex items-center gap-2 text-[10px] sm:text-[11px] font-black text-slate-400 uppercase tracking-wider ml-1">
@@ -45,7 +44,6 @@ const ActionButtons = React.memo(({ onEdit, onDelete, isMobile = false }) => (
   </div>
 ));
 
-// --- VALIDATION ---
 const validateForm = (form) => {
   const errors = {};
   if (!form.name.trim()) errors.name = "Product name is required.";
@@ -56,7 +54,6 @@ const validateForm = (form) => {
   } else if (isNaN(form.selling_price) || Number(form.selling_price) <= 0) {
     errors.selling_price = "Enter a valid price greater than 0.";
   }
-  // making_cost is optional, but if filled must be a valid non-negative number
   if (form.making_cost !== "" && form.making_cost !== null) {
     if (isNaN(form.making_cost) || Number(form.making_cost) < 0) {
       errors.making_cost = "Enter a valid making cost (0 or more).";
@@ -80,6 +77,7 @@ const Product = () => {
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(10);
   const [total, setTotal] = useState(0);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
     const handler = setTimeout(() => setDebouncedSearch(search), 400);
@@ -100,13 +98,15 @@ const Product = () => {
     } finally {
       setLoading(false);
     }
-  }, [page, limit, debouncedSearch]);
+  }, [page, limit, debouncedSearch, refreshKey]);
 
   useEffect(() => {
     const controller = new AbortController();
     fetchProducts(controller.signal);
     return () => controller.abort();
   }, [fetchProducts]);
+
+  const triggerRefresh = () => setRefreshKey((k) => k + 1);
 
   const resetForm = () => {
     setForm(EMPTY_FORM);
@@ -136,7 +136,8 @@ const Product = () => {
     try {
       await axios.delete(`/products/${id}`);
       toast.success("Product deleted successfully!");
-      fetchProducts(new AbortController().signal);
+      setPage((prev) => (products.length === 1 && prev > 1 ? prev - 1 : prev));
+      triggerRefresh();
     } catch {
       toast.error("Failed to delete product");
     }
@@ -144,8 +145,8 @@ const Product = () => {
 
   const totalPages = useMemo(() => Math.ceil(total / limit), [total, limit]);
 
-  // Normalize making_cost for comparison (null, "", and "null" all treated as empty)
-  const normCost = (v) => (v === null || v === undefined || v === "" || v === "null" ? "" : String(v));
+  const normCost = (v) =>
+    v === null || v === undefined || v === "" || v === "null" ? "" : String(v);
 
   const handleSave = async () => {
     const validationErrors = validateForm(form);
@@ -155,7 +156,6 @@ const Product = () => {
     }
     setErrors({});
 
-    // Build payload — send null if making_cost is empty
     const payload = {
       name: form.name.trim(),
       category: form.category.trim(),
@@ -167,10 +167,9 @@ const Product = () => {
     try {
       if (editingId) {
         const orig = originalProduct;
-
         const nameChanged = payload.name !== orig.name;
-        const categoryChanged = payload.category.trim() !== orig.category.trim();
-        const unitChanged = payload.unit.trim() !== orig.unit.trim();
+        const categoryChanged = payload.category !== orig.category.trim();
+        const unitChanged = payload.unit !== orig.unit.trim();
         const priceChanged = String(payload.selling_price) !== String(orig.selling_price);
         const costChanged = normCost(payload.making_cost) !== normCost(orig.making_cost);
 
@@ -186,8 +185,7 @@ const Product = () => {
           await axios.put(`/products/${editingId}`, payload);
           toast.success("Product name updated successfully!");
         } else {
-          // Archive old, create new
-          await axios.patch(`/products/status/${editingId}`); // toggles to inactive
+          await axios.patch(`/products/status/${editingId}`);
           await axios.post("/products", payload);
           toast.success("Old product archived. New product entry created.");
         }
@@ -197,13 +195,12 @@ const Product = () => {
       }
 
       resetForm();
-      fetchProducts(new AbortController().signal);
+      triggerRefresh();
     } catch {
       toast.error("Failed to save product");
     }
   };
 
-  // Compute margin for display
   const getMargin = (selling, making) => {
     if (!making || !selling || Number(making) <= 0) return null;
     return (((Number(selling) - Number(making)) / Number(selling)) * 100).toFixed(1);
@@ -236,7 +233,6 @@ const Product = () => {
         {showForm && (
           <div className="bg-white p-5 sm:p-8 rounded-[1.5rem] sm:rounded-[2.5rem] shadow-xl border border-indigo-50 animate-in fade-in slide-in-from-top-4 duration-300">
             <div className="space-y-6">
-              {/* Row 1: name, category, unit */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
                 <InputGroup label="Product Name" icon={<Tag size={14} />} error={errors.name}>
                   <input
@@ -269,7 +265,6 @@ const Product = () => {
                 </InputGroup>
               </div>
 
-              {/* Row 2: selling price, making cost */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                 <InputGroup label="Selling Price" icon={<IndianRupee size={14} />} error={errors.selling_price}>
                   <input
@@ -292,7 +287,6 @@ const Product = () => {
                 </InputGroup>
               </div>
 
-              {/* Live margin preview */}
               {form.selling_price && form.making_cost && (
                 <div className="flex items-center gap-2 px-4 py-3 bg-emerald-50 rounded-xl border border-emerald-100">
                   <span className="text-xs font-bold text-emerald-600">
