@@ -3,10 +3,10 @@ const db = require("../config/db");
 // CREATE PRODUCT
 exports.createProduct = async (req, res) => {
   try {
-    const { name, category, unit, selling_price } = req.body;
+    const { name, category, unit, selling_price, making_cost } = req.body;
     await db.query(
-      "INSERT INTO products (name, category, unit, selling_price) VALUES (?, ?, ?, ?)",
-      [name, category, unit, selling_price]
+      "INSERT INTO products (name, category, unit, selling_price, making_cost) VALUES (?, ?, ?, ?, ?)",
+      [name, category, unit, selling_price, making_cost ?? null]
     );
     res.status(201).json({ message: "Product Created Successfully" });
   } catch (error) {
@@ -54,14 +54,14 @@ exports.getSingleProduct = async (req, res) => {
   }
 };
 
-// UPDATE PRODUCT
+// UPDATE PRODUCT — only used when ONLY name changed
 exports.updateProduct = async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, category, unit, selling_price } = req.body;
+    const { name, category, unit, selling_price, making_cost } = req.body;
     await db.query(
-      "UPDATE products SET name=?, category=?, unit=?, selling_price=? WHERE id=?",
-      [name, category, unit, selling_price, id]
+      "UPDATE products SET name=?, category=?, unit=?, selling_price=?, making_cost=? WHERE id=?",
+      [name, category, unit, selling_price, making_cost ?? null, id]
     );
     res.json({ message: "Product Updated Successfully" });
   } catch (error) {
@@ -80,7 +80,7 @@ exports.deleteProduct = async (req, res) => {
   }
 };
 
-// TOGGLE STATUS (active <-> inactive)
+// TOGGLE STATUS — sets old product to inactive before archiving
 exports.toggleStatus = async (req, res) => {
   try {
     const { id } = req.params;

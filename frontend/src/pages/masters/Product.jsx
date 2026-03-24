@@ -5,7 +5,7 @@ import toast from "react-hot-toast";
 import {
   Plus, Search, Edit3, Trash2,
   Package, ChevronLeft, ChevronRight,
-  X, Save, IndianRupee, Tag, Layers
+  X, Save, IndianRupee, Tag, Layers, Wrench
 } from "lucide-react";
 
 // --- HELPERS ---
@@ -56,16 +56,21 @@ const validateForm = (form) => {
   } else if (isNaN(form.selling_price) || Number(form.selling_price) <= 0) {
     errors.selling_price = "Enter a valid price greater than 0.";
   }
+  // making_cost is optional, but if filled must be a valid non-negative number
+  if (form.making_cost !== "" && form.making_cost !== null) {
+    if (isNaN(form.making_cost) || Number(form.making_cost) < 0) {
+      errors.making_cost = "Enter a valid making cost (0 or more).";
+    }
+  }
   return errors;
 };
 
-const EMPTY_FORM = { name: "", category: "", unit: "", selling_price: "" };
+const EMPTY_FORM = { name: "", category: "", unit: "", selling_price: "", making_cost: "" };
 
 const Product = () => {
   const [products, setProducts] = useState([]);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
-  // originalProduct stores the product snapshot at the time Edit is clicked
   const [originalProduct, setOriginalProduct] = useState(null);
   const [editingId, setEditingId] = useState(null);
   const [errors, setErrors] = useState({});
@@ -76,7 +81,6 @@ const Product = () => {
   const [limit, setLimit] = useState(10);
   const [total, setTotal] = useState(0);
 
-  // Debounce search
   useEffect(() => {
     const handler = setTimeout(() => setDebouncedSearch(search), 400);
     return () => clearTimeout(handler);
@@ -114,12 +118,13 @@ const Product = () => {
 
   const handleEdit = (product) => {
     setEditingId(product.id);
-    setOriginalProduct(product); // snapshot for comparison
+    setOriginalProduct(product);
     setForm({
       name: product.name,
       category: product.category,
       unit: product.unit,
       selling_price: product.selling_price,
+      making_cost: product.making_cost ?? "",
     });
     setErrors({});
     setShowForm(true);
@@ -139,8 +144,10 @@ const Product = () => {
 
   const totalPages = useMemo(() => Math.ceil(total / limit), [total, limit]);
 
+  // Normalize making_cost for comparison (null, "", and "null" all treated as empty)
+  const normCost = (v) => (v === null || v === undefined || v === "" || v === "null" ? "" : String(v));
+
   const handleSave = async () => {
-    // JS Validation
     const validationErrors = validateForm(form);
     if (Object.keys(validationErrors).length > 0) {
       setErrors(validationErrors);
@@ -148,22 +155,27 @@ const Product = () => {
     }
     setErrors({});
 
+    // Build payload — send null if making_cost is empty
+    const payload = {
+      name: form.name.trim(),
+      category: form.category.trim(),
+      unit: form.unit.trim(),
+      selling_price: form.selling_price,
+      making_cost: form.making_cost !== "" ? form.making_cost : null,
+    };
+
     try {
       if (editingId) {
         const orig = originalProduct;
 
-        // Check if only name changed — simple update is fine
-        const onlyNameChanged =
-          form.name.trim() !== orig.name &&
-          form.category.trim() === orig.category &&
-          form.unit.trim() === orig.unit &&
-          String(form.selling_price) === String(orig.selling_price);
+        const nameChanged = payload.name !== orig.name;
+        const categoryChanged = payload.category.trim() !== orig.category.trim();
+        const unitChanged = payload.unit.trim() !== orig.unit.trim();
+        const priceChanged = String(payload.selling_price) !== String(orig.selling_price);
+        const costChanged = normCost(payload.making_cost) !== normCost(orig.making_cost);
 
-        const nothingChanged =
-          form.name.trim() === orig.name &&
-          form.category.trim() === orig.category &&
-          form.unit.trim() === orig.unit &&
-          String(form.selling_price) === String(orig.selling_price);
+        const nothingChanged = !nameChanged && !categoryChanged && !unitChanged && !priceChanged && !costChanged;
+        const onlyNameChanged = nameChanged && !categoryChanged && !unitChanged && !priceChanged && !costChanged;
 
         if (nothingChanged) {
           toast("No changes detected.", { icon: "ℹ️" });
@@ -171,24 +183,16 @@ const Product = () => {
         }
 
         if (onlyNameChanged) {
-          // Just update the name — no business logic impact
-          await axios.put(`/products/${editingId}`, form);
+          await axios.put(`/products/${editingId}`, payload);
           toast.success("Product name updated successfully!");
         } else {
-          // Price / category / unit changed:
-          // 1. Mark old product inactive
-          // 2. Create new active product
+          // Archive old, create new
           await axios.patch(`/products/status/${editingId}`); // toggles to inactive
-          await axios.post("/products", {
-            name: form.name,
-            category: form.category,
-            unit: form.unit,
-            selling_price: form.selling_price,
-          });
+          await axios.post("/products", payload);
           toast.success("Old product archived. New product entry created.");
         }
       } else {
-        await axios.post("/products", form);
+        await axios.post("/products", payload);
         toast.success("Product added successfully!");
       }
 
@@ -197,6 +201,12 @@ const Product = () => {
     } catch {
       toast.error("Failed to save product");
     }
+  };
+
+  // Compute margin for display
+  const getMargin = (selling, making) => {
+    if (!making || !selling || Number(making) <= 0) return null;
+    return (((Number(selling) - Number(making)) / Number(selling)) * 100).toFixed(1);
   };
 
   return (
@@ -226,8 +236,8 @@ const Product = () => {
         {showForm && (
           <div className="bg-white p-5 sm:p-8 rounded-[1.5rem] sm:rounded-[2.5rem] shadow-xl border border-indigo-50 animate-in fade-in slide-in-from-top-4 duration-300">
             <div className="space-y-6">
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
-
+              {/* Row 1: name, category, unit */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
                 <InputGroup label="Product Name" icon={<Tag size={14} />} error={errors.name}>
                   <input
                     type="text"
@@ -257,8 +267,11 @@ const Product = () => {
                     placeholder="Litre / KG"
                   />
                 </InputGroup>
+              </div>
 
-                <InputGroup label="Price" icon={<IndianRupee size={14} />} error={errors.selling_price}>
+              {/* Row 2: selling price, making cost */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+                <InputGroup label="Selling Price" icon={<IndianRupee size={14} />} error={errors.selling_price}>
                   <input
                     type="number"
                     value={form.selling_price}
@@ -268,7 +281,32 @@ const Product = () => {
                   />
                 </InputGroup>
 
+                <InputGroup label="Making Cost (optional)" icon={<Wrench size={14} />} error={errors.making_cost}>
+                  <input
+                    type="number"
+                    value={form.making_cost}
+                    onChange={(e) => setForm({ ...form, making_cost: e.target.value })}
+                    className={`form-input-custom ${errors.making_cost ? "border-rose-300 focus:border-rose-400" : ""}`}
+                    placeholder="0.00"
+                  />
+                </InputGroup>
               </div>
+
+              {/* Live margin preview */}
+              {form.selling_price && form.making_cost && (
+                <div className="flex items-center gap-2 px-4 py-3 bg-emerald-50 rounded-xl border border-emerald-100">
+                  <span className="text-xs font-bold text-emerald-600">
+                    Estimated Margin:&nbsp;
+                    {getMargin(form.selling_price, form.making_cost) !== null
+                      ? `${getMargin(form.selling_price, form.making_cost)}%`
+                      : "—"}
+                  </span>
+                  {Number(form.making_cost) >= Number(form.selling_price) && (
+                    <span className="text-[10px] font-bold text-rose-500 ml-2">⚠ Making cost ≥ selling price</span>
+                  )}
+                </div>
+              )}
+
               <div className="flex flex-col sm:flex-row justify-end gap-3 pt-4 border-t border-slate-50">
                 <button type="button" onClick={resetForm} className="w-full sm:w-auto px-8 py-3 text-slate-400 font-bold order-2 sm:order-1">
                   Discard
@@ -324,7 +362,9 @@ const Product = () => {
                   <th className="px-8 py-5">Product Details</th>
                   <th className="px-6 py-5">Category</th>
                   <th className="px-6 py-5 text-center">Unit</th>
-                  <th className="px-6 py-5 text-center">Price</th>
+                  <th className="px-6 py-5 text-center">Making Cost</th>
+                  <th className="px-6 py-5 text-center">Selling Price</th>
+                  <th className="px-6 py-5 text-center">Margin</th>
                   <th className="px-6 py-5 text-center">Status</th>
                   <th className="px-8 py-5 text-right">Actions</th>
                 </tr>
@@ -332,32 +372,47 @@ const Product = () => {
               <tbody className="divide-y divide-slate-50 text-sm">
                 {products.length === 0 && !loading ? (
                   <tr>
-                    <td colSpan={6} className="px-8 py-16 text-center text-slate-400 font-medium">
+                    <td colSpan={8} className="px-8 py-16 text-center text-slate-400 font-medium">
                       No products found.
                     </td>
                   </tr>
                 ) : (
-                  products.map((p) => (
-                    <tr key={p.id} className="hover:bg-slate-50/50 transition-colors">
-                      <td className="px-8 py-4 font-bold text-slate-800">{p.name}</td>
-                      <td className="px-6 py-4">
-                        <span className="px-2.5 py-1 bg-indigo-50 text-indigo-600 rounded-lg text-[11px] font-bold">{p.category}</span>
-                      </td>
-                      <td className="px-6 py-4 text-center text-slate-500">{p.unit}</td>
-                      <td className="px-6 py-4 text-center font-black text-slate-900">₹{p.selling_price}</td>
-                      <td className="px-6 py-4">
-                        <div className="flex justify-center">
-                          <StatusBadge status={p.status || "active"} />
-                        </div>
-                      </td>
-                      <td className="px-8 py-4">
-                        <ActionButtons
-                          onEdit={() => handleEdit(p)}
-                          onDelete={() => handleDelete(p.id)}
-                        />
-                      </td>
-                    </tr>
-                  ))
+                  products.map((p) => {
+                    const margin = getMargin(p.selling_price, p.making_cost);
+                    return (
+                      <tr key={p.id} className="hover:bg-slate-50/50 transition-colors">
+                        <td className="px-8 py-4 font-bold text-slate-800">{p.name}</td>
+                        <td className="px-6 py-4">
+                          <span className="px-2.5 py-1 bg-indigo-50 text-indigo-600 rounded-lg text-[11px] font-bold">{p.category}</span>
+                        </td>
+                        <td className="px-6 py-4 text-center text-slate-500">{p.unit}</td>
+                        <td className="px-6 py-4 text-center text-slate-500">
+                          {p.making_cost != null ? `₹${p.making_cost}` : <span className="text-slate-300">—</span>}
+                        </td>
+                        <td className="px-6 py-4 text-center font-black text-slate-900">₹{p.selling_price}</td>
+                        <td className="px-6 py-4 text-center">
+                          {margin !== null ? (
+                            <span className={`text-[11px] font-black px-2 py-0.5 rounded-lg ${Number(margin) > 0 ? "text-emerald-600 bg-emerald-50" : "text-rose-600 bg-rose-50"}`}>
+                              {margin}%
+                            </span>
+                          ) : (
+                            <span className="text-slate-300 text-xs">—</span>
+                          )}
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex justify-center">
+                            <StatusBadge status={p.status || "active"} />
+                          </div>
+                        </td>
+                        <td className="px-8 py-4">
+                          <ActionButtons
+                            onEdit={() => handleEdit(p)}
+                            onDelete={() => handleDelete(p.id)}
+                          />
+                        </td>
+                      </tr>
+                    );
+                  })
                 )}
               </tbody>
             </table>
@@ -370,30 +425,47 @@ const Product = () => {
                 No products found.
               </div>
             ) : (
-              products.map((p) => (
-                <div key={p.id} className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm space-y-4">
-                  <div className="flex justify-between items-start">
-                    <div className="space-y-1">
-                      <h4 className="font-bold text-slate-900 text-base leading-tight">{p.name}</h4>
-                      <div className="flex gap-2">
-                        <span className="text-[10px] font-bold text-slate-400 uppercase">{p.category}</span>
-                        <span className="text-[10px] font-bold text-slate-400 uppercase">•</span>
-                        <span className="text-[10px] font-bold text-slate-400 uppercase">{p.unit}</span>
+              products.map((p) => {
+                const margin = getMargin(p.selling_price, p.making_cost);
+                return (
+                  <div key={p.id} className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm space-y-4">
+                    <div className="flex justify-between items-start">
+                      <div className="space-y-1">
+                        <h4 className="font-bold text-slate-900 text-base leading-tight">{p.name}</h4>
+                        <div className="flex gap-2">
+                          <span className="text-[10px] font-bold text-slate-400 uppercase">{p.category}</span>
+                          <span className="text-[10px] font-bold text-slate-400 uppercase">•</span>
+                          <span className="text-[10px] font-bold text-slate-400 uppercase">{p.unit}</span>
+                        </div>
+                      </div>
+                      <StatusBadge status={p.status || "active"} />
+                    </div>
+                    <div className="grid grid-cols-3 gap-2 py-3 border-y border-slate-50">
+                      <div className="flex flex-col items-center gap-0.5">
+                        <span className="text-[9px] font-bold text-slate-400 uppercase">Making</span>
+                        <span className="text-sm font-black text-slate-600">
+                          {p.making_cost != null ? `₹${p.making_cost}` : "—"}
+                        </span>
+                      </div>
+                      <div className="flex flex-col items-center gap-0.5">
+                        <span className="text-[9px] font-bold text-slate-400 uppercase">Selling</span>
+                        <span className="text-sm font-black text-indigo-600">₹{p.selling_price}</span>
+                      </div>
+                      <div className="flex flex-col items-center gap-0.5">
+                        <span className="text-[9px] font-bold text-slate-400 uppercase">Margin</span>
+                        <span className={`text-sm font-black ${margin !== null && Number(margin) > 0 ? "text-emerald-600" : "text-slate-400"}`}>
+                          {margin !== null ? `${margin}%` : "—"}
+                        </span>
                       </div>
                     </div>
-                    <StatusBadge status={p.status || "active"} />
+                    <ActionButtons
+                      onEdit={() => handleEdit(p)}
+                      onDelete={() => handleDelete(p.id)}
+                      isMobile
+                    />
                   </div>
-                  <div className="flex justify-between items-center py-3 border-y border-slate-50">
-                    <span className="text-xs font-medium text-slate-400">Selling Cost</span>
-                    <span className="text-lg font-black text-indigo-600">₹{p.selling_price}</span>
-                  </div>
-                  <ActionButtons
-                    onEdit={() => handleEdit(p)}
-                    onDelete={() => handleDelete(p.id)}
-                    isMobile
-                  />
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         </div>
