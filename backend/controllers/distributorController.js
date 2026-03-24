@@ -3,16 +3,18 @@ const db = require("../config/db");
 // CREATE
 exports.createDistributor = async (req, res) => {
   try {
-    const { name, shop_name, mobile, address, credit_limit } = req.body;
+    const { name, shop_name, mobile, address, credit_limit, distance } = req.body;
     if (!name?.trim()) return res.status(400).json({ message: "Name is required" });
     if (mobile && !/^\d{10}$/.test(mobile.trim()))
       return res.status(400).json({ message: "Enter a valid 10-digit mobile" });
     if (credit_limit && (isNaN(credit_limit) || Number(credit_limit) < 0))
       return res.status(400).json({ message: "Enter a valid credit limit" });
+    if (distance && (isNaN(distance) || Number(distance) < 0))
+      return res.status(400).json({ message: "Enter a valid distance" });
 
     await db.query(
-      "INSERT INTO distributors (name, shop_name, mobile, address, credit_limit) VALUES (?, ?, ?, ?, ?)",
-      [name.trim(), shop_name?.trim() || null, mobile?.trim() || null, address?.trim() || null, credit_limit || null]
+      "INSERT INTO distributors (name, shop_name, mobile, address, credit_limit, distance) VALUES (?, ?, ?, ?, ?, ?)",
+      [name.trim(), shop_name?.trim() || null, mobile?.trim() || null, address?.trim() || null, credit_limit || null, distance || null]
     );
     res.status(201).json({ message: "Distributor Created" });
   } catch (error) {
@@ -47,16 +49,18 @@ exports.getDistributors = async (req, res) => {
 exports.updateDistributor = async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, shop_name, mobile, address, credit_limit } = req.body;
+    const { name, shop_name, mobile, address, credit_limit, distance } = req.body;
     if (!name?.trim()) return res.status(400).json({ message: "Name is required" });
     if (mobile && !/^\d{10}$/.test(mobile.trim()))
       return res.status(400).json({ message: "Enter a valid 10-digit mobile" });
     if (credit_limit && (isNaN(credit_limit) || Number(credit_limit) < 0))
       return res.status(400).json({ message: "Enter a valid credit limit" });
+    if (distance && (isNaN(distance) || Number(distance) < 0))
+      return res.status(400).json({ message: "Enter a valid distance" });
 
     await db.query(
-      "UPDATE distributors SET name=?, shop_name=?, mobile=?, address=?, credit_limit=? WHERE id=?",
-      [name.trim(), shop_name?.trim() || null, mobile?.trim() || null, address?.trim() || null, credit_limit || null, id]
+      "UPDATE distributors SET name=?, shop_name=?, mobile=?, address=?, credit_limit=?, distance=? WHERE id=?",
+      [name.trim(), shop_name?.trim() || null, mobile?.trim() || null, address?.trim() || null, credit_limit || null, distance || null, id]
     );
     res.json({ message: "Distributor Updated" });
   } catch {

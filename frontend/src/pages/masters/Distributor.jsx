@@ -5,7 +5,7 @@ import toast from "react-hot-toast";
 import {
   Plus, Search, Edit3, Trash2, ChevronLeft, ChevronRight,
   X, Save, User, Phone, MapPin, IndianRupee, Store,
-  ToggleLeft, ToggleRight, AlertCircle
+  ToggleLeft, ToggleRight, AlertCircle, Navigation
 } from "lucide-react";
 
 const InputGroup = React.memo(({ label, icon, error, children }) => (
@@ -34,10 +34,12 @@ const validateForm = (form) => {
     errors.mobile = "Enter a valid 10-digit mobile number.";
   if (form.credit_limit && (isNaN(form.credit_limit) || Number(form.credit_limit) < 0))
     errors.credit_limit = "Enter a valid credit limit (0 or more).";
+  if (form.distance && (isNaN(form.distance) || Number(form.distance) < 0))
+    errors.distance = "Enter a valid distance (0 or more).";
   return errors;
 };
 
-const EMPTY_FORM = { name: "", shop_name: "", mobile: "", address: "", credit_limit: "" };
+const EMPTY_FORM = { name: "", shop_name: "", mobile: "", address: "", credit_limit: "", distance: "" };
 
 const Distributor = () => {
   const [distributors, setDistributors] = useState([]);
@@ -97,6 +99,7 @@ const Distributor = () => {
       mobile: d.mobile || "",
       address: d.address || "",
       credit_limit: d.credit_limit ?? "",
+      distance: d.distance ?? "",
     });
     setErrors({});
     setShowForm(true);
@@ -141,6 +144,7 @@ const Distributor = () => {
       mobile: form.mobile.trim() || null,
       address: form.address.trim() || null,
       credit_limit: form.credit_limit !== "" ? form.credit_limit : null,
+      distance: form.distance !== "" ? form.distance : null,
     };
 
     try {
@@ -220,7 +224,7 @@ const Distributor = () => {
               </div>
 
               {/* Row 2 */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
                 <InputGroup label="Address (optional)" icon={<MapPin size={14} />} error={errors.address}>
                   <input
                     type="text"
@@ -238,6 +242,16 @@ const Distributor = () => {
                     onChange={(e) => setForm({ ...form, credit_limit: e.target.value })}
                     className={`form-input-custom ${errors.credit_limit ? "border-rose-300" : ""}`}
                     placeholder="0.00"
+                  />
+                </InputGroup>
+
+                <InputGroup label="Distance in KM (optional)" icon={<Navigation size={14} />} error={errors.distance}>
+                  <input
+                    type="number"
+                    value={form.distance}
+                    onChange={(e) => setForm({ ...form, distance: e.target.value })}
+                    className={`form-input-custom ${errors.distance ? "border-rose-300" : ""}`}
+                    placeholder="0.0"
                   />
                 </InputGroup>
               </div>
@@ -297,6 +311,7 @@ const Distributor = () => {
                   <th className="px-8 py-5">Name</th>
                   <th className="px-6 py-5">Shop</th>
                   <th className="px-6 py-5">Mobile</th>
+                  <th className="px-6 py-5 text-center">Distance</th>
                   <th className="px-6 py-5 text-center">Credit Limit</th>
                   <th className="px-6 py-5 text-center">Outstanding</th>
                   <th className="px-6 py-5 text-center">Status</th>
@@ -306,7 +321,7 @@ const Distributor = () => {
               <tbody className="divide-y divide-slate-50 text-sm">
                 {distributors.length === 0 && !loading ? (
                   <tr>
-                    <td colSpan={7} className="px-8 py-16 text-center text-slate-400 font-medium">
+                    <td colSpan={8} className="px-8 py-16 text-center text-slate-400 font-medium">
                       No distributors found.
                     </td>
                   </tr>
@@ -327,8 +342,15 @@ const Distributor = () => {
                         <td className="px-6 py-4 text-slate-500">
                           {d.mobile || <span className="text-slate-300">—</span>}
                         </td>
+                        <td className="px-6 py-4 text-center">
+                          {d.distance != null
+                            ? <span className="text-sm font-bold text-slate-700">{d.distance} km</span>
+                            : <span className="text-slate-300">—</span>}
+                        </td>
                         <td className="px-6 py-4 text-center font-bold text-slate-700">
-                          {d.credit_limit != null ? `₹${Number(d.credit_limit).toLocaleString("en-IN")}` : <span className="text-slate-300">—</span>}
+                          {d.credit_limit != null
+                            ? `₹${Number(d.credit_limit).toLocaleString("en-IN")}`
+                            : <span className="text-slate-300">—</span>}
                         </td>
                         <td className="px-6 py-4 text-center">
                           <span className={`text-sm font-black ${overLimit ? "text-rose-600" : "text-slate-700"}`}>
@@ -401,7 +423,13 @@ const Distributor = () => {
                       <StatusBadge status={d.status || "active"} />
                     </div>
 
-                    <div className="grid grid-cols-2 gap-2 py-3 border-y border-slate-50">
+                    <div className="grid grid-cols-3 gap-2 py-3 border-y border-slate-50">
+                      <div className="flex flex-col items-center gap-0.5">
+                        <span className="text-[9px] font-bold text-slate-400 uppercase">Distance</span>
+                        <span className="text-sm font-black text-slate-700">
+                          {d.distance != null ? `${d.distance} km` : "—"}
+                        </span>
+                      </div>
                       <div className="flex flex-col items-center gap-0.5">
                         <span className="text-[9px] font-bold text-slate-400 uppercase">Credit Limit</span>
                         <span className="text-sm font-black text-slate-700">
@@ -413,9 +441,7 @@ const Distributor = () => {
                         <span className={`text-sm font-black ${overLimit ? "text-rose-600" : "text-slate-700"}`}>
                           ₹{Number(d.outstanding_balance || 0).toLocaleString("en-IN")}
                         </span>
-                        {overLimit && (
-                          <span className="text-[9px] text-rose-500 font-bold">Over limit</span>
-                        )}
+                        {overLimit && <span className="text-[9px] text-rose-500 font-bold">Over limit</span>}
                       </div>
                     </div>
 
