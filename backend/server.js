@@ -8,15 +8,11 @@ const app = express();
 // Body parser
 app.use(express.json());
 
-// === CORS setup for Codespaces ===
-// Frontend URL
-const FRONTEND_URL = "https://opulent-lamp-v6697qv9654rhxgr-5173.app.github.dev";
-
 app.use(cors({
-  origin: FRONTEND_URL,           // Allow your frontend
-  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization"],
-  credentials: true               // only needed if using cookies
+  origin: [
+    "https://dairy-management-system-99z8.onrender.com"
+  ],
+  credentials: true
 }));
 
 // Express automatically handles OPTIONS requests now
