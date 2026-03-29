@@ -13,6 +13,7 @@ import DailyReport from "./pages/reports/DailyReport";
 import MonthlyReport from "./pages/reports/MonthlyReport";
 import ProfitLoss from "./pages/reports/ProfitLoss";
 import Ledger from "./pages/reports/Ledger";
+import ProductEntry from "./pages/masters/ProductEntry";
 
 
 function App() {
@@ -112,6 +113,7 @@ function App() {
               </ProtectedRoute>
             }
           />
+          <Route path="/product-entries" element={<ProductEntry />} />
         </Routes>
       </BrowserRouter>
     </AuthProvider>

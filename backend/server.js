@@ -25,6 +25,7 @@ const workerRoutes = require("./routes/workerRoutes");
 const distributorRoutes = require("./routes/distributorRoutes");
 const partnerRoutes = require("./routes/partnerRoutes");
 const transactionRoutes = require("./routes/transactionRoutes");
+const productEntryRoutes = require("./routes/productEntryRoutes");
 
 // === API routes ===
 app.use("/api/auth", authRoutes);
@@ -34,6 +35,7 @@ app.use("/api/workers", workerRoutes);
 app.use("/api/distributors", distributorRoutes);
 app.use("/api/partners", partnerRoutes);
 app.use("/api/transactions", transactionRoutes);
+app.use("/api/product-entries", productEntryRoutes);
 
 // Test DB connection
 app.get("/", (req, res) => {
