@@ -14,6 +14,7 @@ import MonthlyReport from "./pages/reports/MonthlyReport";
 import ProfitLoss from "./pages/reports/ProfitLoss";
 import Ledger from "./pages/reports/Ledger";
 import ProductEntry from "./pages/masters/ProductEntry";
+import RawMaterial from "./pages/masters/RawMaterial";
 
 
 function App() {
@@ -114,6 +115,7 @@ function App() {
             }
           />
           <Route path="/product-entries" element={<ProductEntry />} />
+          <Route path="/raw-materials" element={<RawMaterial />} />
         </Routes>
       </BrowserRouter>
     </AuthProvider>
