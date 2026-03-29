@@ -4,8 +4,7 @@ import Layout from "../../components/layout/Layout";
 import toast from "react-hot-toast";
 import {
   Plus, Search, Edit3, Trash2, ChevronLeft, ChevronRight,
-  X, Save, User, Phone, MapPin, IndianRupee, Store,
-  ToggleLeft, ToggleRight, AlertCircle, Navigation
+  X, Save, User, Phone, MapPin, Store, Navigation
 } from "lucide-react";
 
 const InputGroup = React.memo(({ label, icon, error, children }) => (
@@ -32,14 +31,12 @@ const validateForm = (form) => {
   if (!form.name.trim()) errors.name = "Name is required.";
   if (form.mobile && !/^\d{10}$/.test(form.mobile.trim()))
     errors.mobile = "Enter a valid 10-digit mobile number.";
-  if (form.credit_limit && (isNaN(form.credit_limit) || Number(form.credit_limit) < 0))
-    errors.credit_limit = "Enter a valid credit limit (0 or more).";
   if (form.distance && (isNaN(form.distance) || Number(form.distance) < 0))
     errors.distance = "Enter a valid distance (0 or more).";
   return errors;
 };
 
-const EMPTY_FORM = { name: "", shop_name: "", mobile: "", address: "", credit_limit: "", distance: "" };
+const EMPTY_FORM = { name: "", shop_name: "", mobile: "", address: "", distance: "" };
 
 const Distributor = () => {
   const [distributors, setDistributors] = useState([]);
@@ -98,7 +95,6 @@ const Distributor = () => {
       shop_name: d.shop_name || "",
       mobile: d.mobile || "",
       address: d.address || "",
-      credit_limit: d.credit_limit ?? "",
       distance: d.distance ?? "",
     });
     setErrors({});
@@ -118,16 +114,6 @@ const Distributor = () => {
     }
   };
 
-  const toggleStatus = async (id) => {
-    try {
-      await axios.patch(`/distributors/status/${id}`);
-      toast.success("Status updated!");
-      triggerRefresh();
-    } catch {
-      toast.error("Failed to update status");
-    }
-  };
-
   const totalPages = useMemo(() => Math.ceil(total / limit), [total, limit]);
 
   const handleSave = async () => {
@@ -143,7 +129,6 @@ const Distributor = () => {
       shop_name: form.shop_name.trim() || null,
       mobile: form.mobile.trim() || null,
       address: form.address.trim() || null,
-      credit_limit: form.credit_limit !== "" ? form.credit_limit : null,
       distance: form.distance !== "" ? form.distance : null,
     };
 
@@ -170,7 +155,7 @@ const Distributor = () => {
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
             <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">Distributor Master</h2>
-            <p className="text-slate-500 text-xs sm:text-sm font-medium">Manage your distributors and credit limits</p>
+            <p className="text-slate-500 text-xs sm:text-sm font-medium">Manage your distributors</p>
           </div>
           <button
             onClick={() => { editingId ? resetForm() : setShowForm(!showForm); }}
@@ -224,7 +209,7 @@ const Distributor = () => {
               </div>
 
               {/* Row 2 */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                 <InputGroup label="Address (optional)" icon={<MapPin size={14} />} error={errors.address}>
                   <input
                     type="text"
@@ -232,16 +217,6 @@ const Distributor = () => {
                     onChange={(e) => setForm({ ...form, address: e.target.value })}
                     className="form-input-custom"
                     placeholder="Full address"
-                  />
-                </InputGroup>
-
-                <InputGroup label="Credit Limit (optional)" icon={<IndianRupee size={14} />} error={errors.credit_limit}>
-                  <input
-                    type="number"
-                    value={form.credit_limit}
-                    onChange={(e) => setForm({ ...form, credit_limit: e.target.value })}
-                    className={`form-input-custom ${errors.credit_limit ? "border-rose-300" : ""}`}
-                    placeholder="0.00"
                   />
                 </InputGroup>
 
@@ -312,8 +287,6 @@ const Distributor = () => {
                   <th className="px-6 py-5">Shop</th>
                   <th className="px-6 py-5">Mobile</th>
                   <th className="px-6 py-5 text-center">Distance</th>
-                  <th className="px-6 py-5 text-center">Credit Limit</th>
-                  <th className="px-6 py-5 text-center">Outstanding</th>
                   <th className="px-6 py-5 text-center">Status</th>
                   <th className="px-8 py-5 text-right">Actions</th>
                 </tr>
@@ -321,79 +294,53 @@ const Distributor = () => {
               <tbody className="divide-y divide-slate-50 text-sm">
                 {distributors.length === 0 && !loading ? (
                   <tr>
-                    <td colSpan={8} className="px-8 py-16 text-center text-slate-400 font-medium">
+                    <td colSpan={6} className="px-8 py-16 text-center text-slate-400 font-medium">
                       No distributors found.
                     </td>
                   </tr>
                 ) : (
-                  distributors.map((d) => {
-                    const overLimit = d.credit_limit && Number(d.outstanding_balance) > Number(d.credit_limit);
-                    return (
-                      <tr key={d.id} className="hover:bg-slate-50/50 transition-colors">
-                        <td className="px-8 py-4">
-                          <div className="font-bold text-slate-800">{d.name}</div>
-                          {d.address && <div className="text-[11px] text-slate-400 mt-0.5">{d.address}</div>}
-                        </td>
-                        <td className="px-6 py-4">
-                          {d.shop_name
-                            ? <span className="px-2.5 py-1 bg-indigo-50 text-indigo-600 rounded-lg text-[11px] font-bold">{d.shop_name}</span>
-                            : <span className="text-slate-300">—</span>}
-                        </td>
-                        <td className="px-6 py-4 text-slate-500">
-                          {d.mobile || <span className="text-slate-300">—</span>}
-                        </td>
-                        <td className="px-6 py-4 text-center">
-                          {d.distance != null
-                            ? <span className="text-sm font-bold text-slate-700">{d.distance} km</span>
-                            : <span className="text-slate-300">—</span>}
-                        </td>
-                        <td className="px-6 py-4 text-center font-bold text-slate-700">
-                          {d.credit_limit != null
-                            ? `₹${Number(d.credit_limit).toLocaleString("en-IN")}`
-                            : <span className="text-slate-300">—</span>}
-                        </td>
-                        <td className="px-6 py-4 text-center">
-                          <span className={`text-sm font-black ${overLimit ? "text-rose-600" : "text-slate-700"}`}>
-                            ₹{Number(d.outstanding_balance || 0).toLocaleString("en-IN")}
-                          </span>
-                          {overLimit && (
-                            <div className="flex items-center justify-center gap-1 mt-0.5">
-                              <AlertCircle size={11} className="text-rose-500" />
-                              <span className="text-[10px] text-rose-500 font-bold">Over limit</span>
-                            </div>
-                          )}
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="flex justify-center">
-                            <StatusBadge status={d.status || "active"} />
-                          </div>
-                        </td>
-                        <td className="px-8 py-4">
-                          <div className="flex items-center gap-2 justify-end">
-                            <button
-                              onClick={() => handleEdit(d)}
-                              className="p-2.5 text-indigo-600 hover:bg-indigo-50 rounded-xl border border-transparent hover:border-indigo-100 transition-all"
-                            >
-                              <Edit3 size={18} />
-                            </button>
-                            <button
-                              onClick={() => toggleStatus(d.id)}
-                              title={d.status === "active" ? "Disable" : "Enable"}
-                              className="p-2.5 text-amber-500 hover:bg-amber-50 rounded-xl border border-transparent hover:border-amber-100 transition-all"
-                            >
-                              {d.status === "active" ? <ToggleRight size={18} /> : <ToggleLeft size={18} />}
-                            </button>
-                            <button
-                              onClick={() => handleDelete(d.id)}
-                              className="p-2.5 text-rose-500 hover:bg-rose-50 rounded-xl border border-transparent hover:border-rose-100 transition-all"
-                            >
-                              <Trash2 size={18} />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })
+                  distributors.map((d) => (
+                    <tr key={d.id} className="hover:bg-slate-50/50 transition-colors">
+                      <td className="px-8 py-4">
+                        <div className="font-bold text-slate-800">{d.name}</div>
+                        {d.address && <div className="text-[11px] text-slate-400 mt-0.5">{d.address}</div>}
+                      </td>
+                      <td className="px-6 py-4">
+                        {d.shop_name
+                          ? <span className="px-2.5 py-1 bg-indigo-50 text-indigo-600 rounded-lg text-[11px] font-bold">{d.shop_name}</span>
+                          : <span className="text-slate-300">—</span>}
+                      </td>
+                      <td className="px-6 py-4 text-slate-500">
+                        {d.mobile || <span className="text-slate-300">—</span>}
+                      </td>
+                      <td className="px-6 py-4 text-center">
+                        {d.distance != null
+                          ? <span className="text-sm font-bold text-slate-700">{d.distance} km</span>
+                          : <span className="text-slate-300">—</span>}
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex justify-center">
+                          <StatusBadge status={d.status || "active"} />
+                        </div>
+                      </td>
+                      <td className="px-8 py-4">
+                        <div className="flex items-center gap-2 justify-end">
+                          <button
+                            onClick={() => handleEdit(d)}
+                            className="p-2.5 text-indigo-600 hover:bg-indigo-50 rounded-xl border border-transparent hover:border-indigo-100 transition-all"
+                          >
+                            <Edit3 size={18} />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(d.id)}
+                            className="p-2.5 text-rose-500 hover:bg-rose-50 rounded-xl border border-transparent hover:border-rose-100 transition-all"
+                          >
+                            <Trash2 size={18} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
                 )}
               </tbody>
             </table>
@@ -406,68 +353,46 @@ const Distributor = () => {
                 No distributors found.
               </div>
             ) : (
-              distributors.map((d) => {
-                const overLimit = d.credit_limit && Number(d.outstanding_balance) > Number(d.credit_limit);
-                return (
-                  <div key={d.id} className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm space-y-4">
-                    <div className="flex justify-between items-start">
-                      <div className="space-y-1">
-                        <h4 className="font-bold text-slate-900 text-base leading-tight">{d.name}</h4>
-                        <div className="flex flex-wrap gap-2">
-                          {d.shop_name && <span className="text-[10px] font-bold text-slate-400 uppercase">{d.shop_name}</span>}
-                          {d.shop_name && d.mobile && <span className="text-[10px] font-bold text-slate-400">•</span>}
-                          {d.mobile && <span className="text-[10px] font-bold text-slate-400">{d.mobile}</span>}
-                        </div>
-                        {d.address && <div className="text-[10px] text-slate-400">{d.address}</div>}
+              distributors.map((d) => (
+                <div key={d.id} className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm space-y-4">
+                  <div className="flex justify-between items-start">
+                    <div className="space-y-1">
+                      <h4 className="font-bold text-slate-900 text-base leading-tight">{d.name}</h4>
+                      <div className="flex flex-wrap gap-2">
+                        {d.shop_name && <span className="text-[10px] font-bold text-slate-400 uppercase">{d.shop_name}</span>}
+                        {d.shop_name && d.mobile && <span className="text-[10px] font-bold text-slate-400">•</span>}
+                        {d.mobile && <span className="text-[10px] font-bold text-slate-400">{d.mobile}</span>}
                       </div>
-                      <StatusBadge status={d.status || "active"} />
+                      {d.address && <div className="text-[10px] text-slate-400">{d.address}</div>}
                     </div>
+                    <StatusBadge status={d.status || "active"} />
+                  </div>
 
-                    <div className="grid grid-cols-3 gap-2 py-3 border-y border-slate-50">
-                      <div className="flex flex-col items-center gap-0.5">
-                        <span className="text-[9px] font-bold text-slate-400 uppercase">Distance</span>
-                        <span className="text-sm font-black text-slate-700">
-                          {d.distance != null ? `${d.distance} km` : "—"}
-                        </span>
-                      </div>
-                      <div className="flex flex-col items-center gap-0.5">
-                        <span className="text-[9px] font-bold text-slate-400 uppercase">Credit Limit</span>
-                        <span className="text-sm font-black text-slate-700">
-                          {d.credit_limit != null ? `₹${Number(d.credit_limit).toLocaleString("en-IN")}` : "—"}
-                        </span>
-                      </div>
-                      <div className="flex flex-col items-center gap-0.5">
-                        <span className="text-[9px] font-bold text-slate-400 uppercase">Outstanding</span>
-                        <span className={`text-sm font-black ${overLimit ? "text-rose-600" : "text-slate-700"}`}>
-                          ₹{Number(d.outstanding_balance || 0).toLocaleString("en-IN")}
-                        </span>
-                        {overLimit && <span className="text-[9px] text-rose-500 font-bold">Over limit</span>}
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-2 w-full">
-                      <button
-                        onClick={() => handleEdit(d)}
-                        className="flex-1 p-2.5 text-indigo-600 bg-indigo-50/50 hover:bg-indigo-50 rounded-xl flex justify-center transition-all"
-                      >
-                        <Edit3 size={18} />
-                      </button>
-                      <button
-                        onClick={() => toggleStatus(d.id)}
-                        className="flex-1 p-2.5 text-amber-500 bg-amber-50/50 hover:bg-amber-50 rounded-xl flex justify-center transition-all"
-                      >
-                        {d.status === "active" ? <ToggleRight size={18} /> : <ToggleLeft size={18} />}
-                      </button>
-                      <button
-                        onClick={() => handleDelete(d.id)}
-                        className="flex-1 p-2.5 text-rose-500 bg-rose-50/50 hover:bg-rose-50 rounded-xl flex justify-center transition-all"
-                      >
-                        <Trash2 size={18} />
-                      </button>
+                  <div className="py-3 border-y border-slate-50 flex justify-center">
+                    <div className="flex flex-col items-center gap-0.5">
+                      <span className="text-[9px] font-bold text-slate-400 uppercase">Distance</span>
+                      <span className="text-sm font-black text-slate-700">
+                        {d.distance != null ? `${d.distance} km` : "—"}
+                      </span>
                     </div>
                   </div>
-                );
-              })
+
+                  <div className="flex items-center gap-2 w-full">
+                    <button
+                      onClick={() => handleEdit(d)}
+                      className="flex-1 p-2.5 text-indigo-600 bg-indigo-50/50 hover:bg-indigo-50 rounded-xl flex justify-center transition-all"
+                    >
+                      <Edit3 size={18} />
+                    </button>
+                    <button
+                      onClick={() => handleDelete(d.id)}
+                      className="flex-1 p-2.5 text-rose-500 bg-rose-50/50 hover:bg-rose-50 rounded-xl flex justify-center transition-all"
+                    >
+                      <Trash2 size={18} />
+                    </button>
+                  </div>
+                </div>
+              ))
             )}
           </div>
         </div>
