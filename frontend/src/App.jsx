@@ -17,7 +17,7 @@ import ProductEntry from "./pages/masters/ProductEntry";
 import RawMaterial from "./pages/masters/RawMaterial";
 import Production from "./pages/masters/Production";
 import Sell from "./pages/masters/Sell";
-import Sell from "./pages/masters/Attendance";
+import Attendance from "./pages/masters/Attendance";
 
 
 
