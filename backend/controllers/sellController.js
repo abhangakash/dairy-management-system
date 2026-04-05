@@ -29,34 +29,40 @@ exports.getProductOptions = async (req, res) => {
 // CREATE sell entries (multiple rows, one per product line)
 exports.createSell = async (req, res) => {
   try {
-    const { distributor_id, date, items } = req.body;
+    const { distributor_id, date_on, items } = req.body;
 
     if (!distributor_id) return res.status(400).json({ message: "Distributor is required" });
-    if (!date) return res.status(400).json({ message: "Date is required" });
+    if (!date_on) return res.status(400).json({ message: "Date is required" });
     if (!items || !Array.isArray(items) || items.length === 0)
       return res.status(400).json({ message: "At least one product line is required" });
 
     for (let i = 0; i < items.length; i++) {
       const { product_id, selling_unit } = items[i];
-      if (!product_id) return res.status(400).json({ message: `Row ${i + 1}: Product is required` });
+      if (!product_id)
+        return res.status(400).json({ message: `Row ${i + 1}: Product is required` });
       if (!selling_unit || isNaN(selling_unit) || Number(selling_unit) < 1)
         return res.status(400).json({ message: `Row ${i + 1}: Selling units must be at least 1` });
     }
 
-    const ip =
+    const ip_address =
       req.headers["x-forwarded-for"]?.split(",")[0].trim() ||
       req.socket?.remoteAddress ||
       "unknown";
 
-    const en_by = req.user?.username || req.user?.name || req.user?.email || "system";
+    const entry_by = req.user?.username || req.user?.name || req.user?.email || "system";
 
-    // Insert all rows
     const values = items.map(({ product_id, selling_unit }) => [
-      distributor_id, product_id, selling_unit, date, new Date(), en_by, ip,
+      distributor_id,
+      product_id,
+      selling_unit,
+      date_on,
+      new Date(),
+      entry_by,
+      ip_address,
     ]);
 
     await db.query(
-      `INSERT INTO sell (distributor_id, product_id, selling_unit, date, en_on, en_by, ip) VALUES ?`,
+      `INSERT INTO sell (distributor_id, product_id, selling_unit, date_on, entry_on, entry_by, ip_address) VALUES ?`,
       [values]
     );
 
