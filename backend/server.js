@@ -29,7 +29,6 @@ const productEntryRoutes = require("./routes/productEntryRoutes");
 const rawMaterialRoutes = require("./routes/rawMaterialRoutes");
 const productionRoutes = require("./routes/productionRoutes");
 const sellRoutes = require("./routes/sellRoutes");
-const sellRoutes = require("./routes/sellRoutes");
 const attendanceRoutes = require("./routes/attendanceRoutes");
 
 
