@@ -20,17 +20,18 @@ const InputGroup = React.memo(({ label, icon, error, children }) => (
 
 const getTodayDate = () => new Date().toISOString().split("T")[0];
 
-const EMPTY_ITEM = { product_id: "", selling_unit: 1 };
+const EMPTY_ITEM = () => ({ product_id: "", selling_unit: "" });
 
 const validateForm = (form, items) => {
   const errors = {};
   if (!form.distributor_id) errors.distributor_id = "Please select a distributor.";
-  if (!form.date) errors.date = "Date is required.";
+  if (!form.date_on) errors.date_on = "Date is required.";
 
   const itemErrors = items.map((item) => {
     const e = {};
     if (!item.product_id) e.product_id = "Select a product.";
-    if (!item.selling_unit || Number(item.selling_unit) < 1)
+    const val = Number(item.selling_unit);
+    if (item.selling_unit === "" || isNaN(val) || val < 1)
       e.selling_unit = "Must be at least 1.";
     return e;
   });
@@ -42,8 +43,8 @@ const validateForm = (form, items) => {
 const Sell = () => {
   const [sells, setSells] = useState([]);
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ distributor_id: "", date: getTodayDate() });
-  const [items, setItems] = useState([{ ...EMPTY_ITEM }]);
+  const [form, setForm] = useState({ distributor_id: "", date_on: getTodayDate() });
+  const [items, setItems] = useState([EMPTY_ITEM()]);
   const [errors, setErrors] = useState({});
   const [itemErrors, setItemErrors] = useState([{}]);
   const [loading, setLoading] = useState(false);
@@ -62,7 +63,6 @@ const Sell = () => {
     return () => clearTimeout(handler);
   }, [search]);
 
-  // Load dropdown options once
   useEffect(() => {
     const loadOptions = async () => {
       try {
@@ -104,16 +104,15 @@ const Sell = () => {
   const triggerRefresh = () => setRefreshKey((k) => k + 1);
 
   const resetForm = () => {
-    setForm({ distributor_id: "", date: getTodayDate() });
-    setItems([{ ...EMPTY_ITEM }]);
+    setForm({ distributor_id: "", date_on: getTodayDate() });
+    setItems([EMPTY_ITEM()]);
     setErrors({});
     setItemErrors([{}]);
     setShowForm(false);
   };
 
-  // Item row handlers
   const addItem = () => {
-    setItems((prev) => [...prev, { ...EMPTY_ITEM }]);
+    setItems((prev) => [...prev, EMPTY_ITEM()]);
     setItemErrors((prev) => [...prev, {}]);
   };
 
@@ -124,14 +123,18 @@ const Sell = () => {
   };
 
   const updateItem = (index, field, value) => {
-    setItems((prev) => prev.map((item, i) => i === index ? { ...item, [field]: value } : item));
+    setItems((prev) =>
+      prev.map((item, i) => (i === index ? { ...item, [field]: value } : item))
+    );
   };
 
-  const handleUnitChange = (index, delta) => {
+  // Stepper arrow: only used by +/- buttons, always works on numeric value
+  const handleUnitStep = (index, delta) => {
     setItems((prev) =>
       prev.map((item, i) => {
         if (i !== index) return item;
-        const next = Number(item.selling_unit) + delta;
+        const current = item.selling_unit === "" ? 0 : Number(item.selling_unit);
+        const next = current + delta;
         if (next < 1) return item;
         return { ...item, selling_unit: next };
       })
@@ -154,7 +157,6 @@ const Sell = () => {
 
   const handleSave = async () => {
     const { errors: formErrors, itemErrors: iErrors, hasItemErrors } = validateForm(form, items);
-
     if (Object.keys(formErrors).length > 0 || hasItemErrors) {
       setErrors(formErrors);
       setItemErrors(iErrors);
@@ -167,13 +169,15 @@ const Sell = () => {
     try {
       await axios.post("/sell", {
         distributor_id: Number(form.distributor_id),
-        date: form.date,
+        date_on: form.date_on,
         items: items.map((item) => ({
           product_id: Number(item.product_id),
           selling_unit: Number(item.selling_unit),
         })),
       });
-      toast.success(`${items.length} sell ${items.length === 1 ? "entry" : "entries"} saved successfully!`);
+      toast.success(
+        `${items.length} sell ${items.length === 1 ? "entry" : "entries"} saved successfully!`
+      );
       resetForm();
       triggerRefresh();
     } catch {
@@ -185,7 +189,9 @@ const Sell = () => {
 
   const formatDate = (d) => {
     if (!d) return "—";
-    return new Date(d).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+    return new Date(d).toLocaleDateString("en-IN", {
+      day: "2-digit", month: "short", year: "numeric",
+    });
   };
 
   const formatDateTime = (dt) => {
@@ -196,7 +202,6 @@ const Sell = () => {
     });
   };
 
-  // Get selected product ids across all rows (to warn duplicates)
   const selectedProductIds = items.map((i) => i.product_id).filter(Boolean);
   const hasDuplicateProduct = (index) => {
     const id = items[index].product_id;
@@ -232,7 +237,7 @@ const Sell = () => {
           <div className="bg-white p-5 sm:p-8 rounded-[1.5rem] sm:rounded-[2.5rem] shadow-xl border border-indigo-50 animate-in fade-in slide-in-from-top-4 duration-300">
             <div className="space-y-6">
 
-              {/* Header row: Distributor + Date */}
+              {/* Distributor + Date */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                 <InputGroup label="Distributor" icon={<Store size={14} />} error={errors.distributor_id}>
                   <select
@@ -247,12 +252,12 @@ const Sell = () => {
                   </select>
                 </InputGroup>
 
-                <InputGroup label="Date" icon={<Calendar size={14} />} error={errors.date}>
+                <InputGroup label="Date" icon={<Calendar size={14} />} error={errors.date_on}>
                   <input
                     type="date"
-                    value={form.date}
-                    onChange={(e) => setForm({ ...form, date: e.target.value })}
-                    className={`form-input-custom ${errors.date ? "border-rose-300 focus:border-rose-400" : ""}`}
+                    value={form.date_on}
+                    onChange={(e) => setForm({ ...form, date_on: e.target.value })}
+                    className={`form-input-custom ${errors.date_on ? "border-rose-300 focus:border-rose-400" : ""}`}
                   />
                 </InputGroup>
               </div>
@@ -269,7 +274,7 @@ const Sell = () => {
                 {items.map((item, index) => (
                   <div
                     key={index}
-                    className="grid grid-cols-1 sm:grid-cols-[1fr_180px_40px] gap-3 items-start p-4 bg-slate-50/60 rounded-2xl border border-slate-100"
+                    className="grid grid-cols-1 sm:grid-cols-[1fr_200px_40px] gap-3 items-start p-4 bg-slate-50/60 rounded-2xl border border-slate-100"
                   >
                     {/* Product select */}
                     <div className="flex flex-col gap-1.5">
@@ -280,7 +285,11 @@ const Sell = () => {
                         value={item.product_id}
                         onChange={(e) => updateItem(index, "product_id", e.target.value)}
                         className={`form-input-custom ${
-                          itemErrors[index]?.product_id ? "border-rose-300" : hasDuplicateProduct(index) ? "border-amber-300" : ""
+                          itemErrors[index]?.product_id
+                            ? "border-rose-300"
+                            : hasDuplicateProduct(index)
+                            ? "border-amber-300"
+                            : ""
                         }`}
                       >
                         <option value="">Select product</option>
@@ -289,7 +298,9 @@ const Sell = () => {
                         ))}
                       </select>
                       {itemErrors[index]?.product_id && (
-                        <p className="text-[10px] text-rose-500 font-semibold ml-1">{itemErrors[index].product_id}</p>
+                        <p className="text-[10px] text-rose-500 font-semibold ml-1">
+                          {itemErrors[index].product_id}
+                        </p>
                       )}
                       {hasDuplicateProduct(index) && !itemErrors[index]?.product_id && (
                         <div className="flex items-center gap-1 ml-1">
@@ -301,45 +312,66 @@ const Sell = () => {
 
                     {/* Selling unit stepper */}
                     <div className="flex flex-col gap-1.5">
-                      <label className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-wider ml-1">
-                        Units
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider ml-1">
+                        Units Sold
                       </label>
-                      <div className={`flex items-center bg-white border rounded-[0.875rem] overflow-hidden transition-all ${
-                        itemErrors[index]?.selling_unit ? "border-rose-300" : "border-slate-100 focus-within:border-indigo-500 focus-within:shadow-[0_0_0_3px_rgba(99,102,241,0.08)]"
-                      }`}>
+                      <div
+                        className={`flex items-center bg-white border rounded-[0.875rem] overflow-hidden transition-all ${
+                          itemErrors[index]?.selling_unit
+                            ? "border-rose-300"
+                            : "border-slate-100 focus-within:border-indigo-500 focus-within:shadow-[0_0_0_3px_rgba(99,102,241,0.08)]"
+                        }`}
+                      >
+                        {/* Minus button */}
                         <button
                           type="button"
-                          onClick={() => handleUnitChange(index, -1)}
-                          disabled={Number(item.selling_unit) <= 1}
-                          className="px-3 py-3 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                          onClick={() => handleUnitStep(index, -1)}
+                          disabled={Number(item.selling_unit) <= 1 || item.selling_unit === ""}
+                          className="px-3 py-3 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors flex-shrink-0"
                         >
                           <Minus size={14} />
                         </button>
+
+                        {/* Editable input — free typing, clamped on blur */}
                         <input
                           type="number"
                           value={item.selling_unit}
+                          placeholder="1"
                           onChange={(e) => {
-                            const val = Number(e.target.value);
-                            if (val >= 1) updateItem(index, "selling_unit", val);
+                            // Allow free typing including empty string and any digits
+                            updateItem(index, "selling_unit", e.target.value);
                           }}
-                          className="flex-1 text-center bg-transparent outline-none font-black text-slate-800 text-sm py-3"
+                          onBlur={(e) => {
+                            // On blur clamp: if empty or < 1, reset to 1
+                            const val = Number(e.target.value);
+                            updateItem(index, "selling_unit", isNaN(val) || val < 1 ? 1 : val);
+                          }}
+                          onFocus={(e) => {
+                            // Select all text on focus so user can type over it easily
+                            e.target.select();
+                          }}
+                          className="flex-1 w-0 min-w-0 text-center bg-transparent outline-none font-black text-slate-800 text-sm py-3"
                           min={1}
                         />
+
+                        {/* Plus button */}
                         <button
                           type="button"
-                          onClick={() => handleUnitChange(index, 1)}
-                          className="px-3 py-3 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
+                          onClick={() => handleUnitStep(index, 1)}
+                          className="px-3 py-3 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 transition-colors flex-shrink-0"
                         >
                           <Plus size={14} />
                         </button>
                       </div>
                       {itemErrors[index]?.selling_unit && (
-                        <p className="text-[10px] text-rose-500 font-semibold ml-1">{itemErrors[index].selling_unit}</p>
+                        <p className="text-[10px] text-rose-500 font-semibold ml-1">
+                          {itemErrors[index].selling_unit}
+                        </p>
                       )}
                     </div>
 
-                    {/* Remove row button */}
-                    <div className="flex items-end pb-0.5 sm:pb-0 sm:mt-6">
+                    {/* Remove row */}
+                    <div className="flex items-end pb-0.5 sm:mt-6">
                       <button
                         type="button"
                         onClick={() => removeItem(index)}
@@ -353,7 +385,7 @@ const Sell = () => {
                 ))}
               </div>
 
-              {/* Add row button */}
+              {/* Add row */}
               <button
                 type="button"
                 onClick={addItem}
@@ -363,7 +395,11 @@ const Sell = () => {
               </button>
 
               <div className="flex flex-col sm:flex-row justify-end gap-3 pt-4 border-t border-slate-50">
-                <button type="button" onClick={resetForm} className="w-full sm:w-auto px-8 py-3 text-slate-400 font-bold order-2 sm:order-1">
+                <button
+                  type="button"
+                  onClick={resetForm}
+                  className="w-full sm:w-auto px-8 py-3 text-slate-400 font-bold order-2 sm:order-1"
+                >
                   Discard
                 </button>
                 <button
@@ -371,9 +407,11 @@ const Sell = () => {
                   disabled={submitting}
                   className="w-full sm:w-auto flex items-center justify-center gap-2 bg-indigo-600 text-white px-10 py-3.5 rounded-xl font-bold order-1 sm:order-2 hover:bg-indigo-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
                 >
-                  {submitting
-                    ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    : <Save size={18} />}
+                  {submitting ? (
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    <Save size={18} />
+                  )}
                   Save {items.length > 1 ? `${items.length} Entries` : "Entry"}
                 </button>
               </div>
@@ -423,7 +461,7 @@ const Sell = () => {
                   <th className="px-6 py-5">Product</th>
                   <th className="px-6 py-5 text-center">Units Sold</th>
                   <th className="px-6 py-5 text-center">Date</th>
-                  <th className="px-6 py-5 text-center">Entered On</th>
+                  <th className="px-6 py-5 text-center">Entry On</th>
                   <th className="px-6 py-5 text-center">By</th>
                   <th className="px-6 py-5 text-center">IP</th>
                   <th className="px-8 py-5 text-right">Actions</th>
@@ -441,24 +479,30 @@ const Sell = () => {
                     <tr key={s.id} className="hover:bg-slate-50/50 transition-colors">
                       <td className="px-8 py-4 text-slate-400 text-xs font-bold">{s.id}</td>
                       <td className="px-6 py-4">
-                        <span className="px-2.5 py-1 bg-indigo-50 text-indigo-600 rounded-lg text-[11px] font-bold">{s.distributor_name}</span>
+                        <span className="px-2.5 py-1 bg-indigo-50 text-indigo-600 rounded-lg text-[11px] font-bold">
+                          {s.distributor_name}
+                        </span>
                       </td>
                       <td className="px-6 py-4 font-medium text-slate-700">{s.product_name}</td>
                       <td className="px-6 py-4 text-center">
                         <span className="font-black text-slate-900 text-base">{s.selling_unit}</span>
                       </td>
-                      <td className="px-6 py-4 text-center text-slate-500 text-xs font-medium">{formatDate(s.date)}</td>
-                      <td className="px-6 py-4 text-center text-slate-400 text-xs">{formatDateTime(s.en_on)}</td>
+                      <td className="px-6 py-4 text-center text-slate-500 text-xs font-medium">
+                        {formatDate(s.date_on)}
+                      </td>
+                      <td className="px-6 py-4 text-center text-slate-400 text-xs">
+                        {formatDateTime(s.entry_on)}
+                      </td>
                       <td className="px-6 py-4 text-center">
                         <div className="flex items-center justify-center gap-1">
                           <User size={12} className="text-slate-400" />
-                          <span className="text-xs font-bold text-slate-600">{s.en_by || "—"}</span>
+                          <span className="text-xs font-bold text-slate-600">{s.entry_by || "—"}</span>
                         </div>
                       </td>
                       <td className="px-6 py-4 text-center">
                         <div className="flex items-center justify-center gap-1">
                           <Monitor size={12} className="text-slate-400" />
-                          <span className="text-[11px] text-slate-400 font-medium">{s.ip || "—"}</span>
+                          <span className="text-[11px] text-slate-400 font-medium">{s.ip_address || "—"}</span>
                         </div>
                       </td>
                       <td className="px-8 py-4">
@@ -502,18 +546,18 @@ const Sell = () => {
                     </div>
                     <div className="flex flex-col items-center gap-0.5">
                       <span className="text-[9px] font-bold text-slate-400 uppercase">Date</span>
-                      <span className="text-sm font-black text-slate-600">{formatDate(s.date)}</span>
+                      <span className="text-sm font-black text-slate-600">{formatDate(s.date_on)}</span>
                     </div>
                   </div>
 
                   <div className="grid grid-cols-2 gap-2">
                     <div className="flex items-center gap-1.5 bg-slate-50 rounded-xl px-3 py-2">
                       <User size={12} className="text-slate-400 shrink-0" />
-                      <span className="text-[11px] font-bold text-slate-600 truncate">{s.en_by || "—"}</span>
+                      <span className="text-[11px] font-bold text-slate-600 truncate">{s.entry_by || "—"}</span>
                     </div>
                     <div className="flex items-center gap-1.5 bg-slate-50 rounded-xl px-3 py-2">
                       <Monitor size={12} className="text-slate-400 shrink-0" />
-                      <span className="text-[11px] text-slate-400 truncate">{s.ip || "—"}</span>
+                      <span className="text-[11px] text-slate-400 truncate">{s.ip_address || "—"}</span>
                     </div>
                   </div>
 
