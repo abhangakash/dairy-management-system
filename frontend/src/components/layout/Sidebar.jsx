@@ -21,6 +21,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
     { to: "/workers", label: "Workers", icon: <Users size={20} /> },
     { to: "/product-entries", label: "Product Entry", icon: <Users size={20} /> },
     { to: "/raw-materials", label: "Raw Material", icon: <Users size={20} /> },
+    { to: "/production", label: "Production", icon: <Users size={20} /> },
     { label: "Partnerships", isHeader: true },
     { to: "/distributors", label: "Distributors", icon: <Truck size={20} /> },
     { to: "/partners", label: "Partners", icon: <Handshake size={20} /> },
