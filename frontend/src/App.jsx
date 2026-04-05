@@ -16,6 +16,7 @@ import Ledger from "./pages/reports/Ledger";
 import ProductEntry from "./pages/masters/ProductEntry";
 import RawMaterial from "./pages/masters/RawMaterial";
 import Production from "./pages/masters/Production";
+import Sell from "./pages/masters/Sell";
 
 
 function App() {
@@ -118,6 +119,8 @@ function App() {
           <Route path="/product-entries" element={<ProductEntry />} />
           <Route path="/raw-materials" element={<RawMaterial />} />
           <Route path="/production" element={<Production />} />
+          <Route path="/sell" element={<Sell />} />
+
 
         </Routes>
       </BrowserRouter>
