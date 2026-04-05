@@ -1,7 +1,11 @@
 import React, { useEffect, useState, useCallback, useMemo } from "react";
+
 import axios from "../../api/axios";
+
 import Layout from "../../components/layout/Layout";
+
 import toast from "react-hot-toast";
+
 import {
   Plus, Search, Trash2, ChevronLeft, ChevronRight,
   X, Save, Store, Calendar, Minus,
@@ -128,7 +132,6 @@ const Sell = () => {
     );
   };
 
-  // Stepper arrow: only used by +/- buttons, always works on numeric value
   const handleUnitStep = (index, delta) => {
     setItems((prev) =>
       prev.map((item, i) => {
@@ -162,26 +165,31 @@ const Sell = () => {
       setItemErrors(iErrors);
       return;
     }
+
     setErrors({});
     setItemErrors(items.map(() => ({})));
     setSubmitting(true);
 
     try {
+      // FIX: Send distributor_id and product_id as strings (VARCHAR columns).
+      // Only selling_unit needs Number() since it's a numeric column.
       await axios.post("/sell", {
-        distributor_id: Number(form.distributor_id),
+        distributor_id: String(form.distributor_id),
         date_on: form.date_on,
         items: items.map((item) => ({
-          product_id: Number(item.product_id),
+          product_id: String(item.product_id),
           selling_unit: Number(item.selling_unit),
         })),
       });
+
       toast.success(
         `${items.length} sell ${items.length === 1 ? "entry" : "entries"} saved successfully!`
       );
       resetForm();
       triggerRefresh();
-    } catch {
-      toast.error("Failed to save sell entries");
+    } catch (err) {
+      const msg = err?.response?.data?.message || "Failed to save sell entries";
+      toast.error(msg);
     } finally {
       setSubmitting(false);
     }
@@ -203,6 +211,7 @@ const Sell = () => {
   };
 
   const selectedProductIds = items.map((i) => i.product_id).filter(Boolean);
+
   const hasDuplicateProduct = (index) => {
     const id = items[index].product_id;
     if (!id) return false;
@@ -322,7 +331,6 @@ const Sell = () => {
                             : "border-slate-100 focus-within:border-indigo-500 focus-within:shadow-[0_0_0_3px_rgba(99,102,241,0.08)]"
                         }`}
                       >
-                        {/* Minus button */}
                         <button
                           type="button"
                           onClick={() => handleUnitStep(index, -1)}
@@ -331,30 +339,19 @@ const Sell = () => {
                         >
                           <Minus size={14} />
                         </button>
-
-                        {/* Editable input — free typing, clamped on blur */}
                         <input
                           type="number"
                           value={item.selling_unit}
                           placeholder="1"
-                          onChange={(e) => {
-                            // Allow free typing including empty string and any digits
-                            updateItem(index, "selling_unit", e.target.value);
-                          }}
+                          onChange={(e) => updateItem(index, "selling_unit", e.target.value)}
                           onBlur={(e) => {
-                            // On blur clamp: if empty or < 1, reset to 1
                             const val = Number(e.target.value);
                             updateItem(index, "selling_unit", isNaN(val) || val < 1 ? 1 : val);
                           }}
-                          onFocus={(e) => {
-                            // Select all text on focus so user can type over it easily
-                            e.target.select();
-                          }}
+                          onFocus={(e) => e.target.select()}
                           className="flex-1 w-0 min-w-0 text-center bg-transparent outline-none font-black text-slate-800 text-sm py-3"
                           min={1}
                         />
-
-                        {/* Plus button */}
                         <button
                           type="button"
                           onClick={() => handleUnitStep(index, 1)}
@@ -538,7 +535,6 @@ const Sell = () => {
                     </div>
                     <span className="text-[10px] font-bold text-slate-300">#{s.id}</span>
                   </div>
-
                   <div className="grid grid-cols-2 gap-2 py-3 border-y border-slate-50">
                     <div className="flex flex-col items-center gap-0.5">
                       <span className="text-[9px] font-bold text-slate-400 uppercase">Units Sold</span>
@@ -549,7 +545,6 @@ const Sell = () => {
                       <span className="text-sm font-black text-slate-600">{formatDate(s.date_on)}</span>
                     </div>
                   </div>
-
                   <div className="grid grid-cols-2 gap-2">
                     <div className="flex items-center gap-1.5 bg-slate-50 rounded-xl px-3 py-2">
                       <User size={12} className="text-slate-400 shrink-0" />
@@ -560,7 +555,6 @@ const Sell = () => {
                       <span className="text-[11px] text-slate-400 truncate">{s.ip_address || "—"}</span>
                     </div>
                   </div>
-
                   <button
                     onClick={() => handleDelete(s.id)}
                     className="w-full p-2.5 text-rose-500 bg-rose-50/50 hover:bg-rose-50 rounded-xl flex justify-center transition-all"
@@ -596,7 +590,6 @@ const Sell = () => {
             </button>
           </div>
         </div>
-
       </div>
 
       <style jsx>{`
