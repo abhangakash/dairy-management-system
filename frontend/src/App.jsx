@@ -15,6 +15,7 @@ import ProfitLoss from "./pages/reports/ProfitLoss";
 import Ledger from "./pages/reports/Ledger";
 import ProductEntry from "./pages/masters/ProductEntry";
 import RawMaterial from "./pages/masters/RawMaterial";
+import Production from "./pages/masters/Production";
 
 
 function App() {
@@ -116,6 +117,8 @@ function App() {
           />
           <Route path="/product-entries" element={<ProductEntry />} />
           <Route path="/raw-materials" element={<RawMaterial />} />
+          <Route path="/production" element={<Production />} />
+
         </Routes>
       </BrowserRouter>
     </AuthProvider>

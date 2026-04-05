@@ -27,6 +27,8 @@ const partnerRoutes = require("./routes/partnerRoutes");
 const transactionRoutes = require("./routes/transactionRoutes");
 const productEntryRoutes = require("./routes/productEntryRoutes");
 const rawMaterialRoutes = require("./routes/rawMaterialRoutes");
+const productionRoutes = require("./routes/productionRoutes");
+
 
 // === API routes ===
 app.use("/api/auth", authRoutes);
@@ -38,6 +40,7 @@ app.use("/api/partners", partnerRoutes);
 app.use("/api/transactions", transactionRoutes);
 app.use("/api/product-entries", productEntryRoutes);
 app.use("/api/raw-materials", rawMaterialRoutes);
+app.use("/api/production", productionRoutes);
 
 // Test DB connection
 app.get("/", (req, res) => {
