@@ -28,12 +28,12 @@ exports.createAttendance = async (req, res) => {
     const VALID_STATUSES = ["present", "half_day", "absent"];
 
     for (let i = 0; i < entries.length; i++) {
-      const { worker_id, status } = entries[i];
+      const { worker_id, attendance_status } = entries[i];
 
       if (!worker_id && worker_id !== 0)
         return res.status(400).json({ message: `Row ${i + 1}: Worker is required` });
 
-      if (!status || !VALID_STATUSES.includes(status))
+      if (!attendance_status || !VALID_STATUSES.includes(attendance_status))
         return res.status(400).json({
           message: `Row ${i + 1}: Status must be present, half_day, or absent`,
         });
@@ -60,7 +60,7 @@ exports.createAttendance = async (req, res) => {
     }
 
     // --- Meta ---
-    const ip_address =
+    const entry_ip =
       req.headers["x-forwarded-for"]?.split(",")[0].trim() ||
       req.socket?.remoteAddress ||
       "unknown";
@@ -68,12 +68,20 @@ exports.createAttendance = async (req, res) => {
     const entry_by =
       req.user?.username || req.user?.name || req.user?.email || "system";
 
-    // --- Insert all entries ---
-    const insertPromises = entries.map(({ worker_id, status }) =>
+    // --- Insert ---
+    // Table columns: id | worker_id | attendance_status | date_on | entry_by | entry_on | entry_ip
+    const insertPromises = entries.map(({ worker_id, attendance_status }) =>
       db.query(
-        `INSERT INTO attendance (worker_id, date_on, status, entry_by, entry_on, entry_ip)
+        `INSERT INTO attendance (worker_id, attendance_status, date_on, entry_by, entry_on, entry_ip)
          VALUES (?, ?, ?, ?, ?, ?)`,
-        [String(worker_id), date_on, status, entry_by, new Date(), ip_address]
+        [
+          String(worker_id),
+          attendance_status,
+          date_on,
+          entry_by,
+          new Date(),
+          entry_ip,
+        ]
       )
     );
 
@@ -99,7 +107,7 @@ exports.getAttendance = async (req, res) => {
 
     const like = `%${search}%`;
 
-    const conditions = ["(w.name LIKE ?)"];
+    const conditions = ["w.name LIKE ?"];
     const params     = [like];
 
     if (date) {
@@ -110,7 +118,14 @@ exports.getAttendance = async (req, res) => {
     const where = "WHERE " + conditions.join(" AND ");
 
     const [rows] = await db.query(
-      `SELECT a.*, w.name AS worker_name
+      `SELECT a.id,
+              a.worker_id,
+              a.attendance_status,
+              a.date_on,
+              a.entry_by,
+              a.entry_on,
+              a.entry_ip,
+              w.name AS worker_name
        FROM attendance a
        JOIN workers w ON a.worker_id = w.id
        ${where}
