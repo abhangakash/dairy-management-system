@@ -4,63 +4,70 @@ import Layout from "../../components/layout/Layout";
 import toast from "react-hot-toast";
 import {
   Plus, Search, Trash2, ChevronLeft, ChevronRight,
-  X, Save, Calendar, User, Monitor, CheckCircle2,
-  Clock, XCircle, Users, Filter,
+  X, Save, Calendar, User, Monitor,
+  CheckCircle2, Clock, XCircle, Users, Filter,
 } from "lucide-react";
 
-// ─── Constants ───────────────────────────────────────────────────────────────
+// ─── Status config ────────────────────────────────────────────────────────────
+// attendance_status column values: present | half_day | absent
 
 const STATUS_CONFIG = {
   present: {
     label: "Present",
     short: "P",
     icon: <CheckCircle2 size={14} />,
-    bg: "bg-emerald-50",
-    text: "text-emerald-600",
-    border: "border-emerald-200",
+    badgeBg: "bg-emerald-50",
+    badgeText: "text-emerald-600",
+    badgeBorder: "border-emerald-200",
     activeBg: "bg-emerald-500",
     activeText: "text-white",
-    ring: "ring-emerald-400",
+    idleBorder: "border-emerald-200",
+    idleText: "text-emerald-600",
+    idleBg: "bg-emerald-50",
     dot: "bg-emerald-500",
   },
   half_day: {
     label: "Half Day",
     short: "H",
     icon: <Clock size={14} />,
-    bg: "bg-amber-50",
-    text: "text-amber-600",
-    border: "border-amber-200",
+    badgeBg: "bg-amber-50",
+    badgeText: "text-amber-600",
+    badgeBorder: "border-amber-200",
     activeBg: "bg-amber-500",
     activeText: "text-white",
-    ring: "ring-amber-400",
+    idleBorder: "border-amber-200",
+    idleText: "text-amber-600",
+    idleBg: "bg-amber-50",
     dot: "bg-amber-500",
   },
   absent: {
     label: "Absent",
     short: "A",
     icon: <XCircle size={14} />,
-    bg: "bg-rose-50",
-    text: "text-rose-500",
-    border: "border-rose-200",
+    badgeBg: "bg-rose-50",
+    badgeText: "text-rose-500",
+    badgeBorder: "border-rose-200",
     activeBg: "bg-rose-500",
     activeText: "text-white",
-    ring: "ring-rose-400",
+    idleBorder: "border-rose-200",
+    idleText: "text-rose-500",
+    idleBg: "bg-rose-50",
     dot: "bg-rose-500",
   },
 };
 
-const STATUS_KEYS = Object.keys(STATUS_CONFIG);
+const STATUS_KEYS = ["present", "half_day", "absent"];
 
 const getTodayDate = () => new Date().toISOString().split("T")[0];
 
-// ─── Small helpers ────────────────────────────────────────────────────────────
-
+// ─── StatusBadge — used in the records table ──────────────────────────────────
 const StatusBadge = ({ status }) => {
   const cfg = STATUS_CONFIG[status];
   if (!cfg) return <span className="text-slate-400 text-xs">—</span>;
   return (
     <span
-      className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold border ${cfg.bg} ${cfg.text} ${cfg.border}`}
+      className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold border
+        ${cfg.badgeBg} ${cfg.badgeText} ${cfg.badgeBorder}`}
     >
       {cfg.icon}
       {cfg.label}
@@ -68,10 +75,11 @@ const StatusBadge = ({ status }) => {
   );
 };
 
-const StatusToggle = ({ value, onChange, error }) => (
-  <div className="flex gap-1.5">
+// ─── StatusToggle — 3-button selector per worker row ─────────────────────────
+const StatusToggle = ({ value, onChange, hasError }) => (
+  <div className={`flex gap-1.5 ${hasError ? "ring-1 ring-rose-300 rounded-xl p-0.5" : ""}`}>
     {STATUS_KEYS.map((key) => {
-      const cfg = STATUS_CONFIG[key];
+      const cfg   = STATUS_CONFIG[key];
       const active = value === key;
       return (
         <button
@@ -79,13 +87,12 @@ const StatusToggle = ({ value, onChange, error }) => (
           type="button"
           onClick={() => onChange(key)}
           title={cfg.label}
-          className={`flex-1 flex items-center justify-center gap-1 py-2 px-1 rounded-xl text-[11px] font-black border transition-all active:scale-95
+          className={`flex-1 flex items-center justify-center gap-1 py-2 px-1 rounded-xl
+            text-[11px] font-black border transition-all active:scale-95 select-none
             ${active
               ? `${cfg.activeBg} ${cfg.activeText} border-transparent shadow-sm`
-              : `bg-white ${cfg.text} ${cfg.border} hover:${cfg.bg}`
-            }
-            ${error ? "border-rose-300" : ""}
-          `}
+              : `bg-white ${cfg.idleText} ${cfg.idleBorder} hover:${cfg.idleBg}`
+            }`}
         >
           {cfg.icon}
           <span className="hidden sm:inline">{cfg.label}</span>
@@ -96,36 +103,37 @@ const StatusToggle = ({ value, onChange, error }) => (
   </div>
 );
 
-// ─── Main Component ───────────────────────────────────────────────────────────
-
+// ─── Main Page ────────────────────────────────────────────────────────────────
 const Attendance = () => {
+
   // ── Form state
-  const [showForm, setShowForm]         = useState(false);
-  const [formDate, setFormDate]         = useState(getTodayDate());
+  const [showForm, setShowForm]           = useState(false);
+  const [formDate, setFormDate]           = useState(getTodayDate());
+  const [dateError, setDateError]         = useState("");
   const [workerOptions, setWorkerOptions] = useState([]);
-  const [entries, setEntries]           = useState([]); // [{worker_id, name, status}]
-  const [entryErrors, setEntryErrors]   = useState([]);
-  const [dateError, setDateError]       = useState("");
-  const [submitting, setSubmitting]     = useState(false);
+  // entries: [{ worker_id: string, name: string, attendance_status: string }]
+  const [entries, setEntries]             = useState([]);
+  const [entryErrors, setEntryErrors]     = useState([]); // parallel array of error strings
+  const [submitting, setSubmitting]       = useState(false);
 
   // ── Table state
-  const [records, setRecords]           = useState([]);
-  const [loading, setLoading]           = useState(false);
-  const [search, setSearch]             = useState("");
+  const [records, setRecords]             = useState([]);
+  const [loading, setLoading]             = useState(false);
+  const [search, setSearch]               = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [filterDate, setFilterDate]     = useState("");
-  const [page, setPage]                 = useState(1);
-  const [limit, setLimit]               = useState(10);
-  const [total, setTotal]               = useState(0);
-  const [refreshKey, setRefreshKey]     = useState(0);
+  const [filterDate, setFilterDate]       = useState("");
+  const [page, setPage]                   = useState(1);
+  const [limit, setLimit]                 = useState(10);
+  const [total, setTotal]                 = useState(0);
+  const [refreshKey, setRefreshKey]       = useState(0);
 
-  // ── Debounce search
+  // ── Debounce search input
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(search), 400);
     return () => clearTimeout(t);
   }, [search]);
 
-  // ── Load worker options once
+  // ── Load workers once on mount
   useEffect(() => {
     axios
       .get("/attendance/options/workers")
@@ -133,7 +141,7 @@ const Attendance = () => {
       .catch(() => toast.error("Failed to load workers"));
   }, []);
 
-  // ── Fetch records
+  // ── Fetch table records whenever deps change
   const fetchRecords = useCallback(
     async (signal) => {
       setLoading(true);
@@ -161,15 +169,21 @@ const Attendance = () => {
 
   const triggerRefresh = () => setRefreshKey((k) => k + 1);
 
-  // ── Open form: pre-populate all workers with "present" default
+  // ── Open form: seed all workers defaulted to "present"
   const openForm = () => {
-    const pre = workerOptions.map((w) => ({
-      worker_id: String(w.id),
-      name: w.name,
-      status: "present",
-    }));
-    setEntries(pre);
-    setEntryErrors(pre.map(() => ""));
+    if (workerOptions.length === 0) {
+      toast.error("No active workers found. Add workers first.");
+      return;
+    }
+    setEntries(
+      workerOptions.map((w) => ({
+        worker_id: String(w.id),
+        name: w.name,
+        attendance_status: "present",   // ← exact column name
+      }))
+    );
+    setEntryErrors(workerOptions.map(() => ""));
+    setFormDate(getTodayDate());
     setDateError("");
     setShowForm(true);
   };
@@ -181,29 +195,24 @@ const Attendance = () => {
     setDateError("");
   };
 
-  // ── Update a single entry's status
-  const updateStatus = (index, status) => {
+  // ── Update one worker's attendance_status
+  const updateStatus = (index, attendance_status) => {
     setEntries((prev) =>
-      prev.map((e, i) => (i === index ? { ...e, status } : e))
+      prev.map((e, i) => (i === index ? { ...e, attendance_status } : e))
     );
+    // Clear that row's error as soon as user picks something
+    setEntryErrors((prev) => prev.map((err, i) => (i === index ? "" : err)));
   };
 
-  // ── Quick-set all to one status
-  const setAllStatus = (status) => {
-    setEntries((prev) => prev.map((e) => ({ ...e, status })));
+  // ── Bulk set all workers to one status
+  const setAllStatus = (attendance_status) => {
+    setEntries((prev) => prev.map((e) => ({ ...e, attendance_status })));
+    setEntryErrors(entries.map(() => ""));
   };
 
-  // ── Validate
+  // ── Client-side validation
   const validate = () => {
     let valid = true;
-    const errs = entries.map((e) => {
-      if (!e.status || !STATUS_KEYS.includes(e.status)) {
-        valid = false;
-        return "Select a status";
-      }
-      return "";
-    });
-    setEntryErrors(errs);
 
     if (!formDate) {
       setDateError("Date is required");
@@ -213,9 +222,18 @@ const Attendance = () => {
     }
 
     if (entries.length === 0) {
-      toast.error("No workers to mark attendance for");
-      valid = false;
+      toast.error("No workers available to mark attendance");
+      return false;
     }
+
+    const errs = entries.map((e) => {
+      if (!e.attendance_status || !STATUS_KEYS.includes(e.attendance_status)) {
+        valid = false;
+        return "Please select a status";
+      }
+      return "";
+    });
+    setEntryErrors(errs);
 
     return valid;
   };
@@ -228,7 +246,10 @@ const Attendance = () => {
     try {
       await axios.post("/attendance", {
         date_on: formDate,
-        entries: entries.map(({ worker_id, status }) => ({ worker_id, status })),
+        entries: entries.map(({ worker_id, attendance_status }) => ({
+          worker_id,
+          attendance_status,   // ← exact column name sent to backend
+        })),
       });
       toast.success(`Attendance saved for ${entries.length} worker(s)!`);
       closeForm();
@@ -241,7 +262,7 @@ const Attendance = () => {
     }
   };
 
-  // ── Delete
+  // ── Delete one record
   const handleDelete = async (id) => {
     if (!window.confirm("Delete this attendance record?")) return;
     try {
@@ -256,16 +277,20 @@ const Attendance = () => {
 
   const totalPages = useMemo(() => Math.ceil(total / limit), [total, limit]);
 
-  // ── Summary counts for form header
+  // ── Live summary counts shown in the form header
   const summaryCounts = useMemo(() => {
-    const counts = { present: 0, half_day: 0, absent: 0 };
-    entries.forEach((e) => { if (counts[e.status] !== undefined) counts[e.status]++; });
-    return counts;
+    const c = { present: 0, half_day: 0, absent: 0 };
+    entries.forEach((e) => { if (c[e.attendance_status] !== undefined) c[e.attendance_status]++; });
+    return c;
   }, [entries]);
 
-  // ── Date formatter
+  // ── Date formatters
   const fmt = (d) =>
-    d ? new Date(d).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "—";
+    d
+      ? new Date(d).toLocaleDateString("en-IN", {
+          day: "2-digit", month: "short", year: "numeric",
+        })
+      : "—";
 
   const fmtDt = (d) =>
     d
@@ -280,7 +305,7 @@ const Attendance = () => {
     <Layout>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
 
-        {/* ── HEADER */}
+        {/* ── PAGE HEADER */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
             <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
@@ -292,11 +317,12 @@ const Attendance = () => {
           </div>
           <button
             onClick={showForm ? closeForm : openForm}
-            className={`w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-3.5 rounded-2xl font-bold transition-all active:scale-95 shadow-lg text-sm ${
-              showForm
+            className={`w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-3.5
+              rounded-2xl font-bold transition-all active:scale-95 shadow-lg text-sm
+              ${showForm
                 ? "bg-white text-slate-600 border border-slate-200"
                 : "bg-indigo-600 text-white shadow-indigo-200 hover:bg-indigo-700"
-            }`}
+              }`}
           >
             {showForm ? <X size={18} /> : <Plus size={18} />}
             {showForm ? "Close" : "Mark Attendance"}
@@ -307,9 +333,10 @@ const Attendance = () => {
         {showForm && (
           <div className="bg-white rounded-[1.5rem] sm:rounded-[2.5rem] shadow-xl border border-indigo-50 overflow-hidden animate-in fade-in slide-in-from-top-4 duration-300">
 
-            {/* Form header */}
-            <div className="px-6 sm:px-8 pt-6 sm:pt-8 pb-5 border-b border-slate-100 space-y-5">
-              {/* Date picker */}
+            {/* Form top bar: date + summary + bulk actions */}
+            <div className="px-6 sm:px-8 pt-6 sm:pt-8 pb-5 border-b border-slate-100 space-y-4">
+
+              {/* Date picker row */}
               <div className="flex flex-col sm:flex-row sm:items-end gap-4">
                 <div className="flex flex-col gap-1.5 w-full sm:w-64">
                   <label className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-wider ml-1">
@@ -326,17 +353,18 @@ const Attendance = () => {
                   )}
                 </div>
 
-                {/* Summary pills */}
+                {/* Live summary pills */}
                 <div className="flex gap-2 flex-wrap pb-0.5">
                   {STATUS_KEYS.map((key) => {
                     const cfg = STATUS_CONFIG[key];
                     return (
                       <div
                         key={key}
-                        className={`flex items-center gap-1.5 px-3 py-2 rounded-xl border ${cfg.bg} ${cfg.border}`}
+                        className={`flex items-center gap-1.5 px-3 py-2 rounded-xl border
+                          ${cfg.badgeBg} ${cfg.badgeBorder}`}
                       >
                         <span className={`w-2 h-2 rounded-full ${cfg.dot}`} />
-                        <span className={`text-[11px] font-black ${cfg.text}`}>
+                        <span className={`text-[11px] font-black ${cfg.badgeText}`}>
                           {cfg.label}: {summaryCounts[key]}
                         </span>
                       </div>
@@ -345,9 +373,9 @@ const Attendance = () => {
                 </div>
               </div>
 
-              {/* Bulk action bar */}
+              {/* Bulk-mark row */}
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider mr-1">
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">
                   Mark All:
                 </span>
                 {STATUS_KEYS.map((key) => {
@@ -357,7 +385,9 @@ const Attendance = () => {
                       key={key}
                       type="button"
                       onClick={() => setAllStatus(key)}
-                      className={`flex items-center gap-1 px-3 py-1.5 rounded-xl text-[11px] font-black border transition-all hover:shadow-sm ${cfg.bg} ${cfg.text} ${cfg.border}`}
+                      className={`flex items-center gap-1 px-3 py-1.5 rounded-xl
+                        text-[11px] font-black border transition-all hover:shadow-sm
+                        ${cfg.idleBg} ${cfg.idleText} ${cfg.idleBorder}`}
                     >
                       {cfg.icon} {cfg.label}
                     </button>
@@ -366,7 +396,7 @@ const Attendance = () => {
               </div>
             </div>
 
-            {/* Worker rows */}
+            {/* Scrollable worker list */}
             <div className="divide-y divide-slate-50 max-h-[55vh] overflow-y-auto">
               {entries.length === 0 ? (
                 <div className="px-8 py-16 text-center text-slate-400">
@@ -378,7 +408,8 @@ const Attendance = () => {
                 entries.map((entry, idx) => (
                   <div
                     key={entry.worker_id}
-                    className="grid grid-cols-[1fr_auto] sm:grid-cols-[280px_1fr] gap-3 items-center px-5 sm:px-8 py-3.5 hover:bg-slate-50/50 transition-colors"
+                    className="grid grid-cols-1 sm:grid-cols-[260px_1fr] gap-3 items-center
+                      px-5 sm:px-8 py-3.5 hover:bg-slate-50/50 transition-colors"
                   >
                     {/* Worker name */}
                     <div className="flex items-center gap-3 min-w-0">
@@ -388,16 +419,18 @@ const Attendance = () => {
                       <div className="min-w-0">
                         <p className="font-bold text-slate-800 text-sm truncate">{entry.name}</p>
                         {entryErrors[idx] && (
-                          <p className="text-[10px] text-rose-500 font-semibold">{entryErrors[idx]}</p>
+                          <p className="text-[10px] text-rose-500 font-semibold mt-0.5">
+                            {entryErrors[idx]}
+                          </p>
                         )}
                       </div>
                     </div>
 
-                    {/* Status toggle */}
+                    {/* 3-button status toggle */}
                     <StatusToggle
-                      value={entry.status}
+                      value={entry.attendance_status}
                       onChange={(s) => updateStatus(idx, s)}
-                      error={!!entryErrors[idx]}
+                      hasError={!!entryErrors[idx]}
                     />
                   </div>
                 ))
@@ -405,7 +438,8 @@ const Attendance = () => {
             </div>
 
             {/* Form footer */}
-            <div className="px-6 sm:px-8 py-5 border-t border-slate-100 flex flex-col sm:flex-row justify-end gap-3 bg-slate-50/40">
+            <div className="px-6 sm:px-8 py-5 border-t border-slate-100 bg-slate-50/40
+              flex flex-col sm:flex-row justify-end gap-3">
               <button
                 type="button"
                 onClick={closeForm}
@@ -416,7 +450,10 @@ const Attendance = () => {
               <button
                 onClick={handleSave}
                 disabled={submitting || entries.length === 0}
-                className="w-full sm:w-auto flex items-center justify-center gap-2 bg-indigo-600 text-white px-10 py-3.5 rounded-xl font-bold order-1 sm:order-2 hover:bg-indigo-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                className="w-full sm:w-auto flex items-center justify-center gap-2
+                  bg-indigo-600 text-white px-10 py-3.5 rounded-xl font-bold
+                  order-1 sm:order-2 hover:bg-indigo-700 transition-colors
+                  disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 {submitting ? (
                   <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -429,15 +466,17 @@ const Attendance = () => {
           </div>
         )}
 
-        {/* ── SEARCH & FILTER BAR */}
+        {/* ── SEARCH + FILTER BAR */}
         <div className="flex flex-col sm:flex-row gap-3">
-          {/* Search */}
+          {/* Name search */}
           <div className="relative flex-1">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
             <input
               type="text"
               placeholder="Search by worker name..."
-              className="w-full pl-11 pr-4 py-3.5 bg-white border border-transparent rounded-2xl shadow-sm outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-sm"
+              className="w-full pl-11 pr-4 py-3.5 bg-white border border-transparent
+                rounded-2xl shadow-sm outline-none focus:ring-2 focus:ring-indigo-500
+                transition-all text-sm"
               value={search}
               onChange={(e) => { setPage(1); setSearch(e.target.value); }}
             />
@@ -445,21 +484,27 @@ const Attendance = () => {
 
           {/* Date filter */}
           <div className="relative">
-            <Filter className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={16} />
+            <Filter
+              className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
+              size={16}
+            />
             <input
               type="date"
               value={filterDate}
               onChange={(e) => { setPage(1); setFilterDate(e.target.value); }}
-              className="pl-9 pr-4 py-3.5 bg-white border border-transparent rounded-2xl shadow-sm outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-sm font-medium text-slate-600 cursor-pointer"
               title="Filter by date"
+              className="pl-9 pr-4 py-3.5 bg-white border border-transparent rounded-2xl
+                shadow-sm outline-none focus:ring-2 focus:ring-indigo-500 transition-all
+                text-sm font-medium text-slate-600 cursor-pointer"
             />
           </div>
 
-          {/* Clear date filter */}
+          {/* Clear date button — only when filter is active */}
           {filterDate && (
             <button
               onClick={() => { setPage(1); setFilterDate(""); }}
-              className="flex items-center gap-1.5 px-4 py-3.5 bg-white rounded-2xl shadow-sm text-rose-400 hover:text-rose-600 font-bold text-sm transition-all"
+              className="flex items-center gap-1.5 px-4 py-3.5 bg-white rounded-2xl shadow-sm
+                text-rose-400 hover:text-rose-600 font-bold text-sm transition-all"
             >
               <X size={15} /> Clear Date
             </button>
@@ -469,7 +514,8 @@ const Attendance = () => {
           <select
             value={limit}
             onChange={(e) => { setPage(1); setLimit(Number(e.target.value)); }}
-            className="bg-white border-r-8 border-transparent rounded-2xl py-3.5 px-4 shadow-sm font-bold text-slate-600 text-sm outline-none cursor-pointer"
+            className="bg-white border-r-8 border-transparent rounded-2xl py-3.5 px-4
+              shadow-sm font-bold text-slate-600 text-sm outline-none cursor-pointer"
           >
             {[10, 20, 50].map((v) => (
               <option key={v} value={v}>Show {v}</option>
@@ -477,21 +523,25 @@ const Attendance = () => {
           </select>
         </div>
 
-        {/* ── DATA CONTAINER */}
+        {/* ── DATA TABLE / CARDS */}
         <div className="relative min-h-[300px]">
           {loading && (
-            <div className="absolute inset-0 bg-white/50 backdrop-blur-sm z-20 flex items-center justify-center rounded-3xl">
+            <div className="absolute inset-0 bg-white/50 backdrop-blur-sm z-20 flex
+              items-center justify-center rounded-3xl">
               <div className="flex items-center gap-2 text-indigo-600 font-bold">
-                <div className="w-5 h-5 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+                <div className="w-5 h-5 border-2 border-indigo-600 border-t-transparent
+                  rounded-full animate-spin" />
                 Loading...
               </div>
             </div>
           )}
 
           {/* DESKTOP TABLE */}
-          <div className="hidden md:block bg-white rounded-[2rem] shadow-sm border border-slate-100 overflow-hidden">
+          <div className="hidden md:block bg-white rounded-[2rem] shadow-sm
+            border border-slate-100 overflow-hidden">
             <table className="w-full text-left">
-              <thead className="bg-slate-50/80 text-slate-400 text-[10px] uppercase tracking-widest font-black">
+              <thead className="bg-slate-50/80 text-slate-400 text-[10px] uppercase
+                tracking-widest font-black">
                 <tr>
                   <th className="px-8 py-5">#</th>
                   <th className="px-6 py-5">Worker</th>
@@ -522,8 +572,9 @@ const Attendance = () => {
                           <span className="font-semibold text-slate-700">{r.worker_name}</span>
                         </div>
                       </td>
+                      {/* attendance_status column */}
                       <td className="px-6 py-4 text-center">
-                        <StatusBadge status={r.status} />
+                        <StatusBadge status={r.attendance_status} />
                       </td>
                       <td className="px-6 py-4 text-center text-slate-500 text-xs font-medium">
                         {fmt(r.date_on)}
@@ -534,7 +585,9 @@ const Attendance = () => {
                       <td className="px-6 py-4 text-center">
                         <div className="flex items-center justify-center gap-1">
                           <User size={12} className="text-slate-400" />
-                          <span className="text-xs font-bold text-slate-600">{r.entry_by || "—"}</span>
+                          <span className="text-xs font-bold text-slate-600">
+                            {r.entry_by || "—"}
+                          </span>
                         </div>
                       </td>
                       <td className="px-6 py-4 text-center">
@@ -547,7 +600,8 @@ const Attendance = () => {
                         <div className="flex justify-end">
                           <button
                             onClick={() => handleDelete(r.id)}
-                            className="p-2.5 text-rose-500 hover:bg-rose-50 rounded-xl border border-transparent hover:border-rose-100 transition-all"
+                            className="p-2.5 text-rose-500 hover:bg-rose-50 rounded-xl
+                              border border-transparent hover:border-rose-100 transition-all"
                           >
                             <Trash2 size={18} />
                           </button>
@@ -563,19 +617,23 @@ const Attendance = () => {
           {/* MOBILE CARDS */}
           <div className="md:hidden space-y-4">
             {records.length === 0 && !loading ? (
-              <div className="bg-white p-10 rounded-2xl text-center text-slate-400 font-medium border border-slate-100">
+              <div className="bg-white p-10 rounded-2xl text-center text-slate-400
+                font-medium border border-slate-100">
                 No attendance records found.
               </div>
             ) : (
               records.map((r) => (
-                <div key={r.id} className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm space-y-3">
+                <div key={r.id} className="bg-white p-5 rounded-2xl border border-slate-100
+                  shadow-sm space-y-3">
                   <div className="flex justify-between items-start">
                     <div className="flex items-center gap-2.5">
                       <div className="w-9 h-9 rounded-xl bg-indigo-50 flex items-center justify-center">
                         <User size={16} className="text-indigo-400" />
                       </div>
                       <div>
-                        <p className="font-bold text-slate-900 text-base leading-tight">{r.worker_name}</p>
+                        <p className="font-bold text-slate-900 text-base leading-tight">
+                          {r.worker_name}
+                        </p>
                         <p className="text-[10px] font-bold text-slate-400">{fmt(r.date_on)}</p>
                       </div>
                     </div>
@@ -583,7 +641,8 @@ const Attendance = () => {
                   </div>
 
                   <div className="flex items-center justify-between py-2 border-y border-slate-50">
-                    <StatusBadge status={r.status} />
+                    {/* attendance_status used here */}
+                    <StatusBadge status={r.attendance_status} />
                     <div className="flex items-center gap-1 text-slate-400">
                       <Monitor size={12} />
                       <span className="text-[11px]">{r.entry_ip || "—"}</span>
@@ -593,11 +652,14 @@ const Attendance = () => {
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-1.5 bg-slate-50 rounded-xl px-3 py-2">
                       <User size={12} className="text-slate-400" />
-                      <span className="text-[11px] font-bold text-slate-600">{r.entry_by || "—"}</span>
+                      <span className="text-[11px] font-bold text-slate-600">
+                        {r.entry_by || "—"}
+                      </span>
                     </div>
                     <button
                       onClick={() => handleDelete(r.id)}
-                      className="p-2.5 text-rose-500 bg-rose-50/50 hover:bg-rose-50 rounded-xl transition-all"
+                      className="p-2.5 text-rose-500 bg-rose-50/50 hover:bg-rose-50
+                        rounded-xl transition-all"
                     >
                       <Trash2 size={18} />
                     </button>
@@ -610,10 +672,12 @@ const Attendance = () => {
 
         {/* ── PAGINATION */}
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 py-2">
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest order-2 sm:order-1">
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest
+            order-2 sm:order-1">
             Total Records: {total}
           </p>
-          <div className="flex items-center gap-1 bg-white p-1 rounded-2xl shadow-sm border border-slate-100 order-1 sm:order-2">
+          <div className="flex items-center gap-1 bg-white p-1 rounded-2xl shadow-sm
+            border border-slate-100 order-1 sm:order-2">
             <button
               disabled={page === 1}
               onClick={() => setPage((p) => p - 1)}
@@ -633,6 +697,7 @@ const Attendance = () => {
             </button>
           </div>
         </div>
+
       </div>
 
       <style jsx>{`
