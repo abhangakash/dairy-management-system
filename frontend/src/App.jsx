@@ -17,6 +17,8 @@ import ProductEntry from "./pages/masters/ProductEntry";
 import RawMaterial from "./pages/masters/RawMaterial";
 import Production from "./pages/masters/Production";
 import Sell from "./pages/masters/Sell";
+import Sell from "./pages/masters/Attendance";
+
 
 
 function App() {
@@ -120,6 +122,7 @@ function App() {
           <Route path="/raw-materials" element={<RawMaterial />} />
           <Route path="/production" element={<Production />} />
           <Route path="/sell" element={<Sell />} />
+          <Route path="/attendance" element={<Attendance />} />
 
 
         </Routes>
