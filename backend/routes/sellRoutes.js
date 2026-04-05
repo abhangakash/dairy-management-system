@@ -10,10 +10,9 @@ const {
 } = require("../controllers/sellController");
 
 router.get("/options/distributors", authMiddleware, getDistributorOptions);
-router.get("/options/products", authMiddleware, getProductOptions);
-
-router.post("/", authMiddleware, createSell);
-router.get("/", authMiddleware, getSells);
-router.delete("/:id", authMiddleware, deleteSell);
+router.get("/options/products",     authMiddleware, getProductOptions);
+router.post("/",                    authMiddleware, createSell);
+router.get("/",                     authMiddleware, getSells);
+router.delete("/:id",               authMiddleware, deleteSell);
 
 module.exports = router;
